@@ -292,9 +292,17 @@
     </div>
 
     <script>
-        const GOOGLE_WEB_APP_URL = (typeof appConfig !== 'undefined' && appConfig.googleSheetsUrl) ? appConfig.googleSheetsUrl : "";
+        let GOOGLE_WEB_APP_URL = (typeof appConfig !== 'undefined' && appConfig.googleSheetsUrl) ? appConfig.googleSheetsUrl : "";
         // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
 
+        // Sync with Firebase centralized configuration URL when synced
+        document.addEventListener('googleSheetsUrlSynced', (e) => {
+            if (e.detail) {
+                GOOGLE_WEB_APP_URL = e.detail;
+                const warning = document.getElementById('setup-warning');
+                if (warning) warning.style.display = 'none';
+            }
+        });
 
         const html5QrCode = new Html5Qrcode("reader");
         let currentFacingMode = "environment";

@@ -540,7 +540,7 @@
 
 
     <script>
-        const GOOGLE_WEB_APP_URL = (typeof appConfig !== 'undefined' && appConfig.googleSheetsUrl) ? appConfig.googleSheetsUrl : "";
+        let GOOGLE_WEB_APP_URL = (typeof appConfig !== 'undefined' && appConfig.googleSheetsUrl) ? appConfig.googleSheetsUrl : "";
         // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
         
         // --- GITHUB DEFAULT CONFIG (Fallbacks for cross-device photo viewing) ---
@@ -549,14 +549,39 @@
 
         let _fullData = null;
         window._rowStore = []; // reset on every data render
+        let _lastFetchedUrl = "";
+
+        // Sync with Firebase centralized configuration URL when synced
+        document.addEventListener('googleSheetsUrlSynced', (e) => {
+            if (e.detail) {
+                const newUrl = e.detail;
+                const warning = document.getElementById('setup-warning');
+                if (warning) warning.style.display = 'none';
+                
+                if (GOOGLE_WEB_APP_URL !== newUrl || _lastFetchedUrl !== newUrl) {
+                    GOOGLE_WEB_APP_URL = newUrl;
+                    fetchData();
+                }
+            } else {
+                if (!GOOGLE_WEB_APP_URL) {
+                    const warning = document.getElementById('setup-warning');
+                    if (warning) warning.style.display = 'block';
+                    const loading = document.getElementById('loading');
+                    if (loading) loading.style.display = 'none';
+                }
+            }
+        });
 
         window.onload = function () {
-            if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL.trim() === "") {
-                document.getElementById('setup-warning').style.display = 'block';
-                document.getElementById('loading').style.display = 'none';
-                return;
+            // If firebase is not initialized/connected, fall back to local config
+            if (typeof firebaseInitialized === 'undefined' || !firebaseInitialized || !firebaseDb) {
+                if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL.trim() === "") {
+                    document.getElementById('setup-warning').style.display = 'block';
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+                fetchData();
             }
-            fetchData();
         }
 
         function renderData(data, filterQuery = '') {
@@ -673,6 +698,7 @@
 
         function fetchData() {
             if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL.trim() === "") return;
+            _lastFetchedUrl = GOOGLE_WEB_APP_URL;
 
             // Show cached data instantly while fresh data loads in background
             const cached = localStorage.getItem('dispatchedCache');
