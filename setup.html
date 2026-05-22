@@ -544,6 +544,33 @@
                 </div>
             </div>
 
+            <!-- Panel 1.5: GST Profile Defaults -->
+            <div class="card">
+                <div class="card-title">🏢 GST Profile Defaults</div>
+                <div class="form-group">
+                    <label for="cfg-gst-name">Company/Seller Name</label>
+                    <input type="text" id="cfg-gst-name" placeholder="e.g. Digital Dukan">
+                </div>
+                <div class="form-group">
+                    <label for="cfg-gst-number">GSTIN</label>
+                    <input type="text" id="cfg-gst-number" placeholder="e.g. 08AOVPG0169D1ZV" style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label for="cfg-gst-address">Company Address</label>
+                    <input type="text" id="cfg-gst-address" placeholder="e.g. Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cfg-gst-state">State</label>
+                        <input type="text" id="cfg-gst-state" placeholder="e.g. Rajasthan">
+                    </div>
+                    <div class="form-group">
+                        <label for="cfg-gst-state-code">State Code</label>
+                        <input type="text" id="cfg-gst-state-code" placeholder="e.g. 08">
+                    </div>
+                </div>
+            </div>
+
             <!-- Panel 2: Firebase Connection Parameters -->
             <div class="card">
                 <div class="card-title">🔥 Firebase Credentials</div>
@@ -1033,6 +1060,13 @@ function doPost(e) {
             document.getElementById('feat-gstBilling').checked = ft.gstBilling !== false;
             document.getElementById('feat-customers').checked = ft.customers !== false;
             document.getElementById('feat-onlineExcel').checked = ft.onlineExcel !== false;
+
+            const gst = appConfig.gstProfile || {};
+            document.getElementById('cfg-gst-name').value = gst.name || '';
+            document.getElementById('cfg-gst-number').value = gst.gstin || '';
+            document.getElementById('cfg-gst-address').value = gst.address || '';
+            document.getElementById('cfg-gst-state').value = gst.state || '';
+            document.getElementById('cfg-gst-state-code').value = gst.stateCode || '';
         }
 
         // Retrieve current UI state as a config object
@@ -1061,6 +1095,13 @@ function doPost(e) {
                     gstBilling: document.getElementById('feat-gstBilling').checked,
                     customers: document.getElementById('feat-customers').checked,
                     onlineExcel: document.getElementById('feat-onlineExcel').checked
+                },
+                gstProfile: {
+                    name: document.getElementById('cfg-gst-name').value.trim(),
+                    gstin: document.getElementById('cfg-gst-number').value.trim().toUpperCase(),
+                    address: document.getElementById('cfg-gst-address').value.trim(),
+                    state: document.getElementById('cfg-gst-state').value.trim(),
+                    stateCode: document.getElementById('cfg-gst-state-code').value.trim()
                 }
             };
         }
@@ -1109,6 +1150,13 @@ let appConfig = {
         gstBilling: ${config.features.gstBilling},
         customers: ${config.features.customers},
         onlineExcel: ${config.features.onlineExcel}
+    },
+    gstProfile: {
+        name: ${JSON.stringify(config.gstProfile.name)},
+        gstin: ${JSON.stringify(config.gstProfile.gstin)},
+        address: ${JSON.stringify(config.gstProfile.address)},
+        state: ${JSON.stringify(config.gstProfile.state)},
+        stateCode: ${JSON.stringify(config.gstProfile.stateCode)}
     }
 };
 
@@ -1122,7 +1170,8 @@ try {
                 ...appConfig,
                 ...localConfig,
                 firebaseConfig: { ...appConfig.firebaseConfig, ...localConfig.firebaseConfig },
-                features: { ...appConfig.features, ...localConfig.features }
+                features: { ...appConfig.features, ...localConfig.features },
+                gstProfile: { ...appConfig.gstProfile, ...localConfig.gstProfile }
             };
         }
     }

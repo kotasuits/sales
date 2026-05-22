@@ -26,6 +26,13 @@ let appConfig = {
         gstBilling: true,
         customers: true,
         onlineExcel: true
+    },
+    gstProfile: {
+        name: "Digital Dukan",
+        gstin: "08AOVPG0169D1ZV",
+        address: "Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006",
+        state: "Rajasthan",
+        stateCode: "08"
     }
 };
 
@@ -39,7 +46,8 @@ try {
                 ...appConfig,
                 ...localConfig,
                 firebaseConfig: { ...appConfig.firebaseConfig, ...localConfig.firebaseConfig },
-                features: { ...appConfig.features, ...localConfig.features }
+                features: { ...appConfig.features, ...localConfig.features },
+                gstProfile: { ...appConfig.gstProfile, ...localConfig.gstProfile }
             };
         }
     }

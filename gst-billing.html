@@ -1160,13 +1160,13 @@
         let customersLoaded = false;
         let activePayments = [];
 
-        // Default Seller Profile Config (backed by firebase Settings)
+        // Default Seller Profile Config (backed by firebase Settings, configured dynamically via appConfig.gstProfile)
         let sellerConfig = {
-            name: "Digital Dukan",
-            gstin: "08AOVPG0169D1ZV",
-            address: "Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006",
-            state: "Rajasthan",
-            stateCode: "08",
+            name: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.name) ? appConfig.gstProfile.name : "Digital Dukan",
+            gstin: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.gstin) ? appConfig.gstProfile.gstin : "08AOVPG0169D1ZV",
+            address: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.address) ? appConfig.gstProfile.address : "Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006",
+            state: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.state) ? appConfig.gstProfile.state : "Rajasthan",
+            stateCode: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.stateCode) ? appConfig.gstProfile.stateCode : "08",
             gstPrefix: "DD/2026-27/",
             gstNextNo: 1
         };
@@ -1312,7 +1312,7 @@
                     let data = snap.val() || {};
                     let updated = false;
                     if (data.name === "Zahera Silk Banaras") {
-                        data.name = "Digital Dukan";
+                        data.name = (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.name) ? appConfig.gstProfile.name : "Digital Dukan";
                         updated = true;
                     }
                     if (data.gstPrefix === "ZS/2026-27/") {
@@ -2442,11 +2442,11 @@
             }
 
             const seller = bill.seller || {
-                name: "Digital Dukan",
-                gstin: "08AOVPG0169D1ZV",
-                address: "Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006",
-                state: "Rajasthan",
-                stateCode: "08"
+                name: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.name) ? appConfig.gstProfile.name : "Digital Dukan",
+                gstin: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.gstin) ? appConfig.gstProfile.gstin : "08AOVPG0169D1ZV",
+                address: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.address) ? appConfig.gstProfile.address : "Bheru Gali, Rampura Bazar, Kota, Rajasthan - 324006",
+                state: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.state) ? appConfig.gstProfile.state : "Rajasthan",
+                stateCode: (typeof appConfig !== 'undefined' && appConfig.gstProfile && appConfig.gstProfile.stateCode) ? appConfig.gstProfile.stateCode : "08"
             };
 
             const consignee = bill.consignee || {
