@@ -386,6 +386,121 @@
         #toast.info {
             background: var(--primary);
         }
+
+        /* Firebase Guide Custom Styling */
+        .guide-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-bottom: 1px solid var(--bdr);
+            padding-bottom: 12px;
+        }
+
+        .guide-tab-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--bdr);
+            padding: 8px 14px;
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .guide-tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--txt);
+        }
+
+        .guide-tab-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--primary);
+            color: #818cf8;
+        }
+
+        .guide-pane {
+            display: none;
+            line-height: 1.6;
+            font-size: 0.9rem;
+            color: #d1d5db;
+        }
+
+        .guide-pane.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .guide-pane ol {
+            padding-left: 20px;
+            margin-bottom: 15px;
+            margin-top: 10px;
+        }
+
+        .guide-pane li {
+            margin-bottom: 10px;
+        }
+
+        .guide-pane code {
+            background: rgba(10, 15, 35, 0.6);
+            border: 1px solid var(--bdr);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #a78bfa;
+            font-size: 0.85rem;
+        }
+
+        .code-container {
+            position: relative;
+            background: rgba(10, 15, 35, 0.85);
+            border: 1px solid var(--bdr);
+            border-radius: 10px;
+            padding: 14px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+
+        .code-container pre {
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: #e2e8f0;
+            white-space: pre;
+        }
+
+        .copy-code-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bdr);
+            border-radius: 6px;
+            color: var(--muted);
+            padding: 4px 8px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-code-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .guide-alert {
+            background: rgba(6, 182, 212, 0.08);
+            border-left: 3px solid var(--secondary);
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            margin: 12px 0;
+            color: #a5f3fc;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -470,6 +585,134 @@
                     <div class="form-group">
                         <label for="fb-measurement-id">Measurement ID</label>
                         <input type="text" id="fb-measurement-id" placeholder="measurementId">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2.5: Firebase Setup Guide (Collapsible) -->
+            <div class="card span-2" id="fb-guide-panel" style="background: rgba(20, 30, 60, 0.45); border-color: rgba(99, 102, 241, 0.2);">
+                <div class="card-title" onclick="toggleGuide()" style="cursor: pointer; justify-content: space-between; user-select: none;">
+                    <span style="display: flex; align-items: center; gap: 8px;">🔥 Firebase Setup Guide</span>
+                    <span id="guide-toggle-btn" class="btn btn-reset" style="padding: 6px 12px; font-size: 0.78rem; border-radius: 6px; margin: 0; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc;">📖 Expand Guide</span>
+                </div>
+                <div id="guide-content-wrapper" style="display: none; overflow: hidden; margin-top: 15px;">
+                    <div class="guide-tabs">
+                        <button class="guide-tab-btn active" onclick="switchGuideTab(event, 0)">1. Create Project</button>
+                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 1)">2. Authentication</button>
+                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 2)">3. Realtime Database</button>
+                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 3)">4. Storage Rules</button>
+                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 4)">5. Paste API Credentials</button>
+                    </div>
+                    
+                    <div class="guide-tab-panes">
+                        <!-- Step 1: Create Project -->
+                        <div class="guide-pane active">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Initialize a brand new, empty Firebase environment for your portal.
+                            </div>
+                            <ol>
+                                <li>Open the <a href="https://console.firebase.google.com/" target="_blank" style="color: var(--secondary); text-decoration: underline; font-weight: 500;">Firebase Console</a>.</li>
+                                <li>Click <strong>+ Add project</strong> (or <strong>Create a project</strong>).</li>
+                                <li>Enter your desired application name (e.g. <code>EzyShip Portal</code>) and click <strong>Continue</strong>.</li>
+                                <li>(Optional) Disable or Enable Google Analytics according to your preference, then click <strong>Create project</strong>.</li>
+                                <li>Wait for Firebase to configure resources, then click <strong>Continue</strong> to enter your project dashboard.</li>
+                            </ol>
+                        </div>
+                        
+                        <!-- Step 2: Enable Authentication -->
+                        <div class="guide-pane">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Set up Email/Password authentication and register admin/user accounts.
+                            </div>
+                            <ol>
+                                <li>In the left-hand navigation menu of the Firebase Console, go to <strong>Build</strong> &gt; <strong>Authentication</strong>.</li>
+                                <li>Click <strong>Get started</strong>.</li>
+                                <li>Under the <strong>Sign-in method</strong> tab, select <strong>Email/Password</strong>.</li>
+                                <li>Toggle the first switch (<strong>Email/Password</strong>) to <strong>Enabled</strong> and click <strong>Save</strong>.</li>
+                                <li>Go to the <strong>Users</strong> tab in the Authentication dashboard.</li>
+                                <li>Click <strong>Add user</strong>, enter an email and password (e.g. <code>admin@ezyship.com</code> and a secure password), and click <strong>Add user</strong>. You will use these credentials to log into the application.</li>
+                            </ol>
+                        </div>
+                        
+                        <!-- Step 3: Realtime Database Rules -->
+                        <div class="guide-pane">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Setup Realtime Database to store shipments/billing logs and restrict access to logged-in users.
+                            </div>
+                            <ol>
+                                <li>In the left sidebar, click <strong>Build</strong> &gt; <strong>Realtime Database</strong>.</li>
+                                <li>Click <strong>Create Database</strong>.</li>
+                                <li>Select your database location (choose the nearest region to your clients) and click <strong>Next</strong>.</li>
+                                <li>Select <strong>Start in locked mode</strong> (or test mode) and click <strong>Enable</strong>.</li>
+                                <li>Once the database is created, navigate to the <strong>Rules</strong> tab at the top.</li>
+                                <li>Replace the default database rules with the configuration below to require authentication for reads and writes:
+                                    <div class="code-container">
+                                        <button class="copy-code-btn" onclick="copyCode(this, 'db-rules-code')">Copy Rules</button>
+                                        <pre id="db-rules-code">{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}</pre>
+                                    </div>
+                                </li>
+                                <li>Click the <strong>Publish</strong> button at the top of the editor.</li>
+                            </ol>
+                        </div>
+                        
+                        <!-- Step 4: Storage Rules -->
+                        <div class="guide-pane">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Configure Firebase Cloud Storage bucket to securely upload and display tracking photos.
+                            </div>
+                            <ol>
+                                <li>In the left sidebar, click <strong>Build</strong> &gt; <strong>Storage</strong>.</li>
+                                <li>Click <strong>Get started</strong>.</li>
+                                <li>Select <strong>Start in production mode</strong> (or test mode) and click <strong>Next</strong>.</li>
+                                <li>Choose your storage bucket location and click <strong>Done</strong>.</li>
+                                <li>Once the bucket is generated, click the <strong>Rules</strong> tab at the top.</li>
+                                <li>Replace the default storage rules with the secure config below:
+                                    <div class="code-container">
+                                        <button class="copy-code-btn" onclick="copyCode(this, 'storage-rules-code')">Copy Rules</button>
+                                        <pre id="storage-rules-code">rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre>
+                                    </div>
+                                </li>
+                                <li>Click the <strong>Publish</strong> button to activate the rules.</li>
+                            </ol>
+                        </div>
+                        
+                        <!-- Step 5: Copy Keys -->
+                        <div class="guide-pane">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Register a web client app and copy the credentials into this configuration panel.
+                            </div>
+                            <ol>
+                                <li>Click the <strong>Gear icon (Project Settings)</strong> next to Project Overview in the top left sidebar.</li>
+                                <li>In the <strong>General</strong> tab, scroll down to the bottom to the <strong>Your apps</strong> card.</li>
+                                <li>Click the Web App icon (<strong><code>&lt;/&gt;</code></strong>).</li>
+                                <li>Enter an app name (e.g. <code>EzyShip Web App</code>), leave "Also set up Firebase Hosting" unchecked, and click <strong>Register app</strong>.</li>
+                                <li>Find the generated <code>const firebaseConfig</code> block. Copy the keys and paste them into the <strong>Firebase Credentials</strong> inputs above:
+                                    <ul>
+                                        <li><code>apiKey</code> &rarr; <strong>API Key</strong></li>
+                                        <li><code>authDomain</code> &rarr; <strong>Auth Domain</strong></li>
+                                        <li><code>databaseURL</code> &rarr; <strong>Database URL</strong></li>
+                                        <li><code>projectId</code> &rarr; <strong>Project ID</strong></li>
+                                        <li><code>storageBucket</code> &rarr; <strong>Storage Bucket</strong></li>
+                                        <li><code>messagingSenderId</code> &rarr; <strong>Messaging Sender ID</strong></li>
+                                        <li><code>appId</code> &rarr; <strong>App ID</strong></li>
+                                        <li><code>measurementId</code> (if present) &rarr; <strong>Measurement ID</strong></li>
+                                    </ul>
+                                </li>
+                                <li>Click <strong>Save for Preview</strong> to test live, or <strong>Download config file</strong> to save the changes permanently!</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -994,6 +1237,63 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => {
                 toast.classList.remove("show");
             }, 3000);
+        }
+
+        // Toggle setup guide panel display
+        function toggleGuide() {
+            const wrapper = document.getElementById('guide-content-wrapper');
+            const btn = document.getElementById('guide-toggle-btn');
+            if (wrapper.style.display === 'none') {
+                wrapper.style.display = 'block';
+                btn.textContent = '📖 Collapse Guide';
+                btn.style.background = 'rgba(239, 68, 68, 0.15)';
+                btn.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                btn.style.color = '#f87171';
+            } else {
+                wrapper.style.display = 'none';
+                btn.textContent = '📖 Expand Guide';
+                btn.style.background = 'rgba(99, 102, 241, 0.15)';
+                btn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                btn.style.color = '#a5b4fc';
+            }
+        }
+
+        // Switch tabs inside setup guide
+        function switchGuideTab(event, index) {
+            if (event) {
+                event.stopPropagation(); // Avoid triggering parent toggleGuide
+            }
+            const tabs = document.querySelectorAll('.guide-tab-btn');
+            const panes = document.querySelectorAll('.guide-pane');
+            
+            tabs.forEach((tab, i) => {
+                if (i === index) {
+                    tab.classList.add('active');
+                    panes[i].classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                    panes[i].classList.remove('active');
+                }
+            });
+        }
+
+        // Copy code to clipboard helper
+        function copyCode(btn, elementId) {
+            const codeText = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(codeText).then(() => {
+                const oldText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'var(--ok)';
+                btn.style.color = '#fff';
+                setTimeout(() => {
+                    btn.textContent = oldText;
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                showToast("Failed to copy rules", "err");
+            });
         }
     </script>
 </body>
