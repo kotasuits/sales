@@ -526,7 +526,7 @@
     <div class="config-dashboard" id="config-workspace">
         <div class="header">
             <h1>⚙️ Portal Configuration Vault</h1>
-            <p>Define global Firebase credentials, sync sheets, and customize active user modules</p>
+            <p>Define global Firebase credentials and customize active user modules</p>
         </div>
 
         <div class="grid-layout">
@@ -541,10 +541,6 @@
                 <div class="form-group">
                     <label for="cfg-setup-key">Setup Access Key</label>
                     <input type="text" id="cfg-setup-key" placeholder="New access key for setup.html">
-                </div>
-                <div class="form-group">
-                    <label for="cfg-sheets-url">Google Sheets Web App URL</label>
-                    <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec">
                 </div>
             </div>
 
@@ -633,7 +629,6 @@
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 2)">3. Realtime Database</button>
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 3)">4. Storage Rules</button>
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 4)">5. Paste API Credentials</button>
-                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 5)">6. Google Sheets Script</button>
                     </div>
                     
                     <div class="guide-tab-panes">
@@ -684,6 +679,10 @@
   "rules": {
     "records": {
       ".read": true,
+      ".write": "auth != null"
+    },
+    "dispatches": {
+      ".read": "auth != null",
       ".write": "auth != null"
     },
     "bills": {
@@ -759,125 +758,6 @@ service firebase.storage {
                                 <li>Click <strong>Save for Preview</strong> to test live, or <strong>Download config file</strong> to save the changes permanently!</li>
                             </ol>
                         </div>
-
-                        <!-- Step 6: Google Sheets Script -->
-                        <div class="guide-pane">
-                            <div class="guide-alert">
-                                <strong>Goal:</strong> Deploy a Google Apps Script linked to your spreadsheet to log and query shipping records.
-                            </div>
-                            <ol>
-                                <li>Create a new Google Spreadsheet or open an existing tracking spreadsheet.</li>
-                                <li>Rename the active sheet/tab to <code>Sheet1</code> or make sure it is the first tab in the spreadsheet.</li>
-                                <li>In the top menu, go to <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
-                                <li>Delete any placeholder code in the editor, and paste the code below:
-                                    <div class="code-container">
-                                        <button class="copy-code-btn" onclick="copyCode(this, 'sheets-script-code')">Copy Script</button>
-                                        <pre id="sheets-script-code">function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0];
-  var jsonArray = [];
-  
-  var colMap = {};
-  headers.forEach(function(h, index) {
-    colMap[h.toString().toLowerCase().trim()] = index;
-  });
-  
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var record = {
-      timestamp: row[colMap["timestamp"] || 0],
-      pkgId: colMap["package id"] !== undefined ? row[colMap["package id"]] : (colMap["pkgid"] !== undefined ? row[colMap["pkgid"]] : ""),
-      name: colMap["name"] !== undefined ? row[colMap["name"]] : "",
-      phone: colMap["phone"] !== undefined ? row[colMap["phone"]] : "",
-      pincode: colMap["pincode"] !== undefined ? row[colMap["pincode"]] : "",
-      address: colMap["address"] !== undefined ? row[colMap["address"]] : "",
-      rawText: colMap["rawtext"] !== undefined ? row[colMap["rawtext"]] : ""
-    };
-    
-    if (record.timestamp instanceof Date) {
-      record.timestamp = record.timestamp.toISOString();
-    } else {
-      record.timestamp = record.timestamp.toString();
-    }
-    
-    jsonArray.push(record);
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify(jsonArray))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var params = e.parameter;
-  
-  if (params.action === "delete") {
-    var timestampToDelete = params.timestamp;
-    var data = sheet.getDataRange().getValues();
-    
-    for (var i = 1; i < data.length; i++) {
-      var rowTime = data[i][0];
-      if (rowTime instanceof Date) {
-        rowTime = rowTime.toISOString();
-      } else {
-        rowTime = rowTime.toString();
-      }
-      
-      if (rowTime === timestampToDelete) {
-        sheet.deleteRow(i + 1);
-        return ContentService.createTextOutput(JSON.stringify({
-          status: "success",
-          message: "Order deleted successfully"
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "error",
-      message: "Order not found with timestamp: " + timestampToDelete
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var payload = JSON.parse(params.data);
-  var timestamp = new Date();
-  
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Timestamp", "Package ID", "Name", "Phone", "Pincode", "Address", "RawText"]);
-  }
-  
-  sheet.appendRow([
-    timestamp,
-    payload.pkgId || "",
-    payload.name || "",
-    payload.phone || "",
-    payload.pincode || "",
-    payload.address || "",
-    payload.rawText || ""
-  ]);
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: "success",
-    message: "Record appended successfully"
-  })).setMimeType(ContentService.MimeType.JSON);
-}</pre>
-                                    </div>
-                                </li>
-                                <li>Click the <strong>Save project (floppy disk)</strong> icon at the top of the editor.</li>
-                                <li>Click <strong>Deploy</strong> (blue button in top right) &gt; <strong>New deployment</strong>.</li>
-                                <li>Click the Gear icon next to "Select type" and choose <strong>Web app</strong>.</li>
-                                <li>Configure deployment fields:
-                                    <ul>
-                                        <li><strong>Description:</strong> <code>EzyShip Sheets Link</code></li>
-                                        <li><strong>Execute as:</strong> <code>Me (your Google email)</code></li>
-                                        <li><strong>Who has access:</strong> <code>Anyone</code> <span style="color:var(--err); font-weight:600;">(CRITICAL for public submissions/reads)</span></li>
-                                    </ul>
-                                </li>
-                                <li>Click <strong>Deploy</strong>. If prompted, click <strong>Authorize Access</strong>, log in, expand "Advanced", and click <strong>Go to Untitled Project (unsafe)</strong> to grant permissions.</li>
-                                <li>Copy the generated <strong>Web App URL</strong> (e.g. <code>https://script.google.com/macros/s/AKfycb.../exec</code>).</li>
-                                <li>Paste this URL directly into the <strong>Google Sheets Web App URL</strong> input field under the <strong>Application Settings</strong> panel above.</li>
-                            </ol>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -912,7 +792,7 @@ function doPost(e) {
                     <div class="feature-item">
                         <div class="feature-info">
                             <span class="feature-name">📋 Dispatched</span>
-                            <span class="feature-desc">Track and sync delivery updates in spreadsheet logs</span>
+                            <span class="feature-desc">View and manage dispatched parcels with Firebase sync</span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="feat-dispatched">
@@ -1018,14 +898,6 @@ function doPost(e) {
                     if (user && firebaseDb) {
                         console.log("Authenticated with Firebase. Synchronizing settings...");
                         
-                        // Load Sheets URL from DB
-                        firebaseDb.ref('billingSettings/googleSheetsUrl').once('value').then(snap => {
-                            if (snap.exists() && snap.val()) {
-                                document.getElementById('cfg-sheets-url').value = snap.val();
-                                if (typeof appConfig !== 'undefined') appConfig.googleSheetsUrl = snap.val();
-                            }
-                        }).catch(err => console.error("Error loading sheets URL from Firebase:", err));
-                        
                         // Load GST Profile from DB
                         firebaseDb.ref('billingSettings/sellerGstProfile').once('value').then(snap => {
                             if (snap.exists()) {
@@ -1081,9 +953,9 @@ function doPost(e) {
 
             document.getElementById('cfg-app-name').value = appConfig.appName || '';
             document.getElementById('cfg-setup-key').value = appConfig.setupAccessKey || '';
-            document.getElementById('cfg-sheets-url').value = appConfig.googleSheetsUrl || '';
 
             const fb = appConfig.firebaseConfig || {};
+
             document.getElementById('fb-api-key').value = fb.apiKey || '';
             document.getElementById('fb-auth-domain').value = fb.authDomain || '';
             document.getElementById('fb-db-url').value = fb.databaseURL || '';
@@ -1117,7 +989,6 @@ function doPost(e) {
             return {
                 appName: document.getElementById('cfg-app-name').value.trim(),
                 setupAccessKey: document.getElementById('cfg-setup-key').value.trim() || 'admin123',
-                googleSheetsUrl: document.getElementById('cfg-sheets-url').value.trim(),
                 firebaseConfig: {
                     apiKey: document.getElementById('fb-api-key').value.trim(),
                     authDomain: document.getElementById('fb-auth-domain').value.trim(),
@@ -1154,14 +1025,6 @@ function doPost(e) {
             if (typeof firebaseInitialized !== 'undefined' && firebaseInitialized && firebaseDb && firebaseAuth) {
                 const user = firebaseAuth.currentUser;
                 if (user) {
-                    // Update Google Sheets URL
-                    firebaseDb.ref('billingSettings/googleSheetsUrl').set(config.googleSheetsUrl)
-                        .then(() => console.log("Google Sheets URL synced to Firebase database successfully."))
-                        .catch(err => {
-                            console.error("Failed to sync Sheets URL to Firebase:", err);
-                            showToast("Firebase URL Sync Error: " + err.message, "err");
-                        });
-
                     // Update Seller GST Profile (keep existing fields like gstPrefix/gstNextNo)
                     firebaseDb.ref('billingSettings/sellerGstProfile').once('value').then(snap => {
                         let currentGst = snap.val() || {};
@@ -1218,7 +1081,6 @@ function doPost(e) {
 let appConfig = {
     appName: ${JSON.stringify(config.appName)},
     setupAccessKey: ${JSON.stringify(config.setupAccessKey)},
-    googleSheetsUrl: ${JSON.stringify(config.googleSheetsUrl)},
     firebaseConfig: {
         apiKey: ${JSON.stringify(config.firebaseConfig.apiKey)},
         authDomain: ${JSON.stringify(config.firebaseConfig.authDomain)},
@@ -1288,21 +1150,6 @@ const firebaseAuth = firebaseInitialized ? firebase.auth() : null;
 const firebaseDb = firebaseInitialized ? firebase.database() : null;
 const firebaseStorage = firebaseInitialized ? firebase.storage() : null;
 
-// Central dynamic configuration sync
-if (firebaseInitialized && firebaseAuth && firebaseDb) {
-    firebaseAuth.onAuthStateChanged((user) => {
-        if (user) {
-            firebaseDb.ref('billingSettings/googleSheetsUrl').on('value', snap => {
-                if (snap.exists() && snap.val()) {
-                    appConfig.googleSheetsUrl = snap.val();
-                    document.dispatchEvent(new CustomEvent('googleSheetsUrlSynced', { detail: snap.val() }));
-                } else if (appConfig.googleSheetsUrl) {
-                    firebaseDb.ref('billingSettings/googleSheetsUrl').set(appConfig.googleSheetsUrl);
-                }
-            });
-        }
-    });
-}
 
 // 3. Helper Functions
 function getLoginUrl() {
