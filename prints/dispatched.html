@@ -487,13 +487,11 @@
     <div class="header">
         <div class="header-title">
             <h1>Dispatched Items</h1>
-        <p>Live dispatch data synced directly from Firebase.</p>
+        <p>Dispatch records loaded from GitHub <code>dispatches.json</code>.</p>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <button class="refresh-btn" onclick="fetchData()"><span>↻</span> Refresh</button>
-            <button class="refresh-btn"
-                style="background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.4);"
-                onclick="localStorage.removeItem('dispatchedCache');fetchData();">🗑 Clear Cache</button>
+            <button class="refresh-btn" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border-color:rgba(99,102,241,0.4);" onclick="openGhSettings()">⚙️ GitHub Config</button>
         </div>
     </div>
 
@@ -505,7 +503,7 @@
 
         <div id="loading" class="loading-state">
             <div class="spinner"></div>
-            <p>Fetching dispatches from Firebase...</p>
+            <p>Fetching dispatches from GitHub...</p>
         </div>
 
         <div id="error" class="error-state" style="display: none;">
@@ -634,7 +632,7 @@
 
                 // Store row data for the modal to look up later
                 const rowIdx = window._rowStore.length;
-                window._rowStore.push({ phone: dispPhone, timestamp: row.timestamp || '', awb: row.awb || '', pkgId: dispPkgId, firebaseId });
+                window._rowStore.push({ phone: dispPhone, timestamp: row.timestamp || '', awb: row.awb || '', pkgId: dispPkgId, entryId: row.id || null });
 
                 tr.innerHTML = `
                     <td class="td-time">${displayDate}</td>
@@ -645,7 +643,7 @@
                         <button class="track-btn" onclick="openTracker(${rowIdx})">
                             <span>📍</span> Track
                         </button>
-                        ${firebaseId ? `<button class="delete-btn" onclick="deleteOrder('${firebaseId}')">🗑 Delete</button>` : ''}
+                        ${row.id ? `<button class="delete-btn" onclick="deleteOrder('${row.id}')">🗑 Delete</button>` : ''}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -655,10 +653,74 @@
             document.getElementById('data-table').style.display = 'table';
         }
 
+        // ── GitHub Config helpers ──
+        function getGhCfg() {
+            const cfg = JSON.parse(localStorage.getItem('ghTrackCfg') || '{}');
+            return {
+                repo:   cfg.repo   || '',
+                branch: cfg.branch || 'main',
+                token:  cfg.token  || ''
+            };
+        }
+
+        function openGhSettings() {
+            const cfg = getGhCfg();
+            let modal = document.getElementById('ghSettingsModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'ghSettingsModal';
+                modal.className = 'modal-overlay';
+                document.body.appendChild(modal);
+                modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+            }
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width:420px;">
+                    <button class="close-modal" onclick="document.getElementById('ghSettingsModal').classList.remove('show')">×</button>
+                    <div style="font-size:1.4rem;font-weight:700;margin-bottom:16px;">⚙️ GitHub Config</div>
+                    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:20px;">Dispatch records are stored as <code>dispatches.json</code> in your GitHub repo. Same repo used for tracking photos.</p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">GitHub Repo (owner/repo)</label>
+                            <input id="gh-repo-input" type="text" value="${cfg.repo}" placeholder="e.g. yourname/ezyship-track" style="width:100%;padding:10px;background:rgba(15,23,42,0.6);border:1px solid var(--border);border-radius:8px;color:white;font-size:0.95rem;outline:none;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Branch</label>
+                            <input id="gh-branch-input" type="text" value="${cfg.branch}" placeholder="main" style="width:100%;padding:10px;background:rgba(15,23,42,0.6);border:1px solid var(--border);border-radius:8px;color:white;font-size:0.95rem;outline:none;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px;">Personal Access Token <span style="color:#f87171;">*</span></label>
+                            <input id="gh-token-input" type="password" value="${cfg.token}" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:10px;background:rgba(15,23,42,0.6);border:1px solid var(--border);border-radius:8px;color:white;font-size:0.95rem;outline:none;">
+                            <small style="color:var(--text-muted);font-size:0.75rem;">Needs <strong>repo</strong> scope. <a href="https://github.com/settings/tokens" target="_blank" style="color:#60a5fa;">Generate token →</a></small>
+                        </div>
+                        <button onclick="saveGhSettings()" style="margin-top:8px;padding:12px;background:#3b82f6;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:1rem;">💾 Save & Reload</button>
+                    </div>
+                </div>
+            `;
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function saveGhSettings() {
+            const repo   = document.getElementById('gh-repo-input').value.trim();
+            const branch = document.getElementById('gh-branch-input').value.trim() || 'main';
+            const token  = document.getElementById('gh-token-input').value.trim();
+            if (!repo || !token) { alert('Please fill in Repo and Token.'); return; }
+            const cfg = JSON.parse(localStorage.getItem('ghTrackCfg') || '{}');
+            cfg.repo = repo; cfg.branch = branch; cfg.token = token;
+            localStorage.setItem('ghTrackCfg', JSON.stringify(cfg));
+            document.getElementById('ghSettingsModal').classList.remove('show');
+            setTimeout(() => fetchData(), 300);
+        }
+
+        // ── GitHub fetch ──
         function fetchData() {
-            if (!firebaseDb) {
+            const cfg = getGhCfg();
+
+            if (!cfg.repo || !cfg.token) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error-msg').innerHTML = '❌ Firebase not connected. Please configure Firebase in <a href="../setup.html" style="color:#60a5fa;">Setup</a>.';
+                document.getElementById('error-msg').innerHTML =
+                    '⚙️ GitHub not configured.<br><br>' +
+                    'Click <strong>⚙️ GitHub Config</strong> above to enter your repo and personal access token.';
                 document.getElementById('error').style.display = 'block';
                 return;
             }
@@ -668,33 +730,48 @@
             document.getElementById('empty').style.display = 'none';
             document.getElementById('data-table').style.display = 'none';
 
-            firebaseDb.ref('dispatches').once('value')
-                .then(snapshot => {
-                    document.getElementById('loading').style.display = 'none';
-                    const val = snapshot.val();
-                    if (!val) {
-                        document.getElementById('empty').style.display = 'block';
-                        _fullData = [];
-                        return;
-                    }
-                    // Convert Firebase object to array, preserving the key as 'id'
-                    const data = Object.entries(val).map(([key, entry]) => ({
-                        ...entry,
-                        id: key
-                    }));
-                    renderData(data);
-                })
-                .catch(error => {
-                    console.error('Firebase fetch error:', error);
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('error-msg').innerHTML =
-                        '❌ Failed to load dispatches from Firebase.<br><small>' + error.message + '</small><br><br>' +
-                        '✅ <strong>Check:</strong><br>' +
-                        '1. Firebase Realtime Database rules allow <strong>auth != null</strong> reads on <code>dispatches</code><br>' +
-                        '2. You are logged in<br>' +
-                        '3. Firebase credentials are correct in <code>firebase-config.js</code>';
-                    document.getElementById('error').style.display = 'block';
-                });
+            const apiUrl = `https://api.github.com/repos/${cfg.repo}/contents/dispatches.json?ref=${cfg.branch}&t=${Date.now()}`;
+            fetch(apiUrl, {
+                headers: {
+                    'Authorization': 'token ' + cfg.token,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            })
+            .then(res => {
+                if (res.status === 404) return null; // file not created yet
+                if (!res.ok) throw new Error('GitHub error ' + res.status);
+                return res.json();
+            })
+            .then(fileData => {
+                document.getElementById('loading').style.display = 'none';
+                if (!fileData) {
+                    document.getElementById('empty').style.display = 'block';
+                    _fullData = [];
+                    return;
+                }
+                let data = [];
+                try {
+                    data = JSON.parse(atob(fileData.content.replace(/\n/g, '')));
+                    if (!Array.isArray(data)) data = [];
+                } catch (e) { data = []; }
+                if (data.length === 0) {
+                    document.getElementById('empty').style.display = 'block';
+                    _fullData = [];
+                    return;
+                }
+                renderData(data);
+            })
+            .catch(error => {
+                console.error('GitHub fetch error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-msg').innerHTML =
+                    '❌ Failed to load from GitHub.<br><small>' + error.message + '</small><br><br>' +
+                    '✅ <strong>Check:</strong><br>' +
+                    '1. Repo name is correct (owner/repo)<br>' +
+                    '2. Token has <strong>repo</strong> scope<br>' +
+                    '3. Token is not expired';
+                document.getElementById('error').style.display = 'block';
+            });
         }
 
         function filterTable() {
@@ -702,18 +779,40 @@
             renderData(_fullData, input);
         }
 
-        function deleteOrder(firebaseId) {
-            if (!firebaseId) { alert('Cannot delete: missing record ID.'); return; }
-            if (!confirm("Are you sure you want to permanently delete this dispatch?")) return;
+        function deleteOrder(entryId) {
+            if (!entryId) { alert('Cannot delete: missing record ID.'); return; }
+            if (!confirm('Permanently delete this dispatch from GitHub?')) return;
 
-            firebaseDb.ref('dispatches/' + firebaseId).remove()
-                .then(() => {
-                    console.log("Dispatch deleted from Firebase:", firebaseId);
-                    fetchData(); // Refresh the table
+            const cfg = getGhCfg();
+            if (!cfg.repo || !cfg.token) { alert('GitHub not configured.'); return; }
+
+            const apiUrl = `https://api.github.com/repos/${cfg.repo}/contents/dispatches.json?ref=${cfg.branch}`;
+            const ghHeaders = {
+                'Authorization': 'token ' + cfg.token,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+
+            fetch(apiUrl, { headers: ghHeaders })
+                .then(res => { if (!res.ok) throw new Error('Read failed'); return res.json(); })
+                .then(fileData => {
+                    let data = JSON.parse(atob(fileData.content.replace(/\n/g, '')));
+                    data = data.filter(e => String(e.id) !== String(entryId));
+                    const body = {
+                        message: `Delete dispatch ${entryId}`,
+                        content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+                        sha: fileData.sha,
+                        branch: cfg.branch
+                    };
+                    return fetch(apiUrl, { method: 'PUT', headers: ghHeaders, body: JSON.stringify(body) });
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Write failed');
+                    fetchData();
                 })
                 .catch(error => {
-                    console.error("Error deleting dispatch:", error);
-                    alert("Failed to delete: " + error.message);
+                    console.error('Delete error:', error);
+                    alert('Failed to delete: ' + error.message);
                 });
         }
 

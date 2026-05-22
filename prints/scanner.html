@@ -273,7 +273,7 @@
 
     <div class="header">
         <h1>Dispatch Scanner</h1>
-        <p>Scan address label QR codes to save them directly to Firebase.</p>
+        <p>Scan address label QR codes to save dispatch records to GitHub.</p>
     </div>
 
     <div class="glass-card">
@@ -418,35 +418,89 @@
                 return;
             }
 
-            // Write directly to Firebase Realtime Database under 'dispatches'
-            const newRef = firebaseDb.ref('dispatches').push();
-            newRef.set({
-                id: newRef.key,
-                timestamp: new Date().toISOString(),
-                pkgId: parsedData.pkgId || "",
-                name: parsedData.name || "",
-                phone: parsedData.phone || "",
-                pincode: parsedData.pincode || "",
-                address: parsedData.address || "",
-                rawText: parsedData.rawText || ""
-            })
-            .then(() => {
-                const pkgSuffix = parsedData.pkgId ? ` [${parsedData.pkgId}]` : '';
-                showToast('success', 'Dispatched & Saved!' + pkgSuffix);
-            })
-            .catch(error => {
-                console.error("Firebase write error:", error);
-                showToast('error', 'Save failed: ' + (error.message || 'Unknown error'));
-            })
-            .finally(() => {
-                // Resume scanning after a delay to prevent accidental double scans
+            // Write dispatch record to GitHub dispatches.json
+            // Uses same GitHub config (ghTrackCfg) as tracking photo system
+            const ghCfg = JSON.parse(localStorage.getItem('ghTrackCfg') || '{}');
+            const ghRepo   = ghCfg.repo   || '';
+            const ghBranch = ghCfg.branch || 'main';
+            const ghToken  = ghCfg.token  || '';
+
+            if (!ghToken || !ghRepo) {
+                showToast('error', 'GitHub token not set. Configure in Dispatched page ⚙️ settings.');
                 setTimeout(() => {
-                    if (html5QrCode.getState && html5QrCode.getState() === 3) {
-                        html5QrCode.resume();
-                    }
+                    if (html5QrCode.getState && html5QrCode.getState() === 3) html5QrCode.resume();
                     isProcessing = false;
-                }, 2000);
-            });
+                }, 3000);
+                return;
+            }
+
+            const apiUrl = `https://api.github.com/repos/${ghRepo}/contents/dispatches.json?ref=${ghBranch}`;
+            const ghHeaders = {
+                'Authorization': 'token ' + ghToken,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+
+            // Step 1: Read existing dispatches.json (or start fresh if not found)
+            fetch(apiUrl, { headers: ghHeaders })
+                .then(res => {
+                    if (res.status === 404) return { sha: null, content: null };
+                    if (!res.ok) throw new Error('GitHub read failed (' + res.status + ')');
+                    return res.json();
+                })
+                .then(fileData => {
+                    // Decode existing array
+                    let existing = [];
+                    if (fileData.content) {
+                        try {
+                            existing = JSON.parse(atob(fileData.content.replace(/\n/g, '')));
+                            if (!Array.isArray(existing)) existing = [];
+                        } catch (e) { existing = []; }
+                    }
+
+                    // Build new entry
+                    const entry = {
+                        id: Date.now().toString(),
+                        timestamp: new Date().toISOString(),
+                        pkgId:   parsedData.pkgId    || '',
+                        name:    parsedData.name     || '',
+                        phone:   parsedData.phone    || '',
+                        pincode: parsedData.pincode  || '',
+                        address: parsedData.address  || '',
+                        rawText: parsedData.rawText  || ''
+                    };
+                    existing.push(entry);
+
+                    // Encode and write back
+                    const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(existing, null, 2))));
+                    const body = {
+                        message: `Dispatch: ${entry.pkgId || entry.name || 'scan'} @ ${new Date().toLocaleString('en-IN')}`,
+                        content: newContent,
+                        branch: ghBranch
+                    };
+                    if (fileData.sha) body.sha = fileData.sha;
+
+                    return fetch(apiUrl, {
+                        method: 'PUT',
+                        headers: ghHeaders,
+                        body: JSON.stringify(body)
+                    });
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('GitHub write failed (' + res.status + ')');
+                    const pkgSuffix = parsedData.pkgId ? ` [${parsedData.pkgId}]` : '';
+                    showToast('success', 'Dispatched & Saved!' + pkgSuffix);
+                })
+                .catch(error => {
+                    console.error('GitHub dispatch save error:', error);
+                    showToast('error', 'Save failed: ' + error.message);
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        if (html5QrCode.getState && html5QrCode.getState() === 3) html5QrCode.resume();
+                        isProcessing = false;
+                    }, 2000);
+                });
         }
 
         function onScanFailure(error) {
