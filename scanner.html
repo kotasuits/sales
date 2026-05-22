@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch Scanner</title>
+    <style id="auth-guard-style">body { display: none !important; }</style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="../firebase-config.js"></script>
+    <script>enforceAuth();</script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- HTML5 QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 40%),
+                radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.15), transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #34d399, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* Scanner overrides */
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--primary) !important;
+        }
+
+        #reader__dashboard_section_csr span {
+            color: var(--text-main) !important;
+        }
+
+        #reader__dashboard_section_swaplink {
+            color: var(--primary) !important;
+        }
+
+        #reader button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+        }
+
+        /* Status Toast */
+        .status-toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 15px 25px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transition: bottom 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 1000;
+        }
+
+        .switch-btn {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1.1rem;
+        }
+
+        .switch-btn:hover {
+            background: rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .status-toast.show {
+            bottom: 40px;
+        }
+
+        .status-toast.success {
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .status-toast.error {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .status-toast.loading {
+            border-color: #eab308;
+            color: #eab308;
+        }
+
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid currentColor;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        nav {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 26px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        nav a {
+            color: #34d399;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 7px 16px;
+            border: 1.5px solid rgba(16, 185, 129, .4);
+            border-radius: 8px;
+            background: rgba(16, 185, 129, .08);
+            transition: all .2s;
+            font-size: .88rem;
+        }
+
+        nav a:hover,
+        nav a.on {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        /* Setup warning */
+        .setup-warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .setup-warning a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        @media(max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            .glass-card {
+                padding: 15px;
+            }
+            nav {
+                gap: 8px;
+                padding: 0 5px;
+            }
+            nav a {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+                flex: 1 1 calc(50% - 10px);
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <a href="index.html">📄 Labels</a>
+        <a href="scanner.html" class="on">🔍 Scanner</a>
+        <a href="dispatched.html">📋 Dispatched</a>
+        <a href="../uploads.html">📸 Upload Tracking</a>
+        <a href="../search.html">🔎 Search Photos</a>
+        <a href="../billing.html">🧾 Billing</a>
+        <a href="../gst-billing.html">🧾 GST Billing</a>
+        <a href="../customers.html">👤 Customers</a>
+        <a href="../online-excel.html">📊 Online Excel</a>
+        <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>
+    </nav>
+
+    <div class="header">
+        <h1>Dispatch Scanner</h1>
+        <p>Scan address label QR codes to save them directly to Firebase.</p>
+    </div>
+
+    <div class="glass-card">
+        <div id="reader"></div>
+        <button class="switch-btn" onclick="switchCamera()">🔄 Switch Camera (Front/Back)</button>
+    </div>
+
+    <div id="toast" class="status-toast">
+        <div id="toast-icon"></div>
+        <span id="toast-message">Ready</span>
+    </div>
+
+    <script>
+        const html5QrCode = new Html5Qrcode("reader");
+        let currentFacingMode = "environment";
+        let isProcessing = false;
+
+        window.onload = function () {
+            startScanner();
+        }
+
+        function startScanner() {
+            html5QrCode.start(
+                { facingMode: currentFacingMode },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                },
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                console.error("Camera error:", err);
+                showToast('error', 'Camera not found or blocked.');
+            });
+        }
+
+        function switchCamera() {
+            currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+
+            if (html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    startScanner();
+                }).catch(err => {
+                    console.log("Failed to stop scanner", err);
+                });
+            } else {
+                startScanner();
+            }
+        }
+
+        function showToast(type, message) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+
+            toast.className = `status-toast show ${type}`;
+            msg.innerText = message;
+
+            if (type === 'loading') {
+                icon.innerHTML = '<div class="loader"></div>';
+            } else if (type === 'success') {
+                icon.innerHTML = '✅';
+            } else {
+                icon.innerHTML = '❌';
+            }
+
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessing) return; // Prevent multiple scans at once
+
+            // Try parsing the text as JSON
+            let parsedData;
+            try {
+                parsedData = JSON.parse(decodedText);
+                if (!parsedData.name && !parsedData.phone) {
+                    throw new Error("Invalid format");
+                }
+                // Try to extract pkgId from raw text if not already populated in the JSON payload
+                if (!parsedData.pkgId) {
+                    let pkgMatch = decodedText.match(/\bPKG-[A-Z0-9]+\b/i);
+                    if (pkgMatch) {
+                        parsedData.pkgId = pkgMatch[0].toUpperCase();
+                    }
+                }
+            } catch (e) {
+                // If it's not our JSON format, extract structured fields (phone, pincode, name, address)
+                let text = decodedText.trim();
+                let pkgMatch = text.match(/\bPKG-[A-Z0-9]+\b/i);
+                let pkgId = '';
+                if (pkgMatch) {
+                    pkgId = pkgMatch[0].toUpperCase();
+                    text = text.replace(pkgMatch[0], '').trim();
+                }
+
+                let phMatch = text.match(/(?:(?:\+|00)?91[\s-]?)?(?:0[\s-]?)?\b(\d{5}[\s-]?\d{5}|\d{10})\b/);
+                let pinMatch = text.match(/\b(\d{6})\b/);
+                
+                let phone = phMatch ? phMatch[1].replace(/\s/g, '').slice(-10) : '';
+                let pincode = pinMatch ? pinMatch[1] : '';
+                
+                let name = '';
+                if (phMatch || pinMatch) {
+                    let n = text;
+                    if (phMatch) n = n.replace(phMatch[0], '');
+                    if (pinMatch) n = n.replace(pinMatch[0], '');
+                    n = n.replace(/[|\-_:;]+/g, ' ').trim();
+                    if (n && n.length > 2 && n.length < 30) {
+                        name = n;
+                    }
+                }
+                
+                parsedData = {
+                    name: name || 'Scanned Label',
+                    phone: phone,
+                    pincode: pincode,
+                    address: text, // Keep full text as address fallback
+                    rawText: decodedText.trim(),
+                    pkgId: pkgId
+                };
+            }
+
+            isProcessing = true;
+            if (html5QrCode.getState && html5QrCode.getState() === 2) {
+                html5QrCode.pause(true); // Pause scanning visually
+            }
+            showToast('loading', 'Saving to Firebase...');
+
+            // Check Firebase is available
+            if (!firebaseDb) {
+                showToast('error', 'Firebase not connected. Check setup.');
+                setTimeout(() => {
+                    if (html5QrCode.getState && html5QrCode.getState() === 3) html5QrCode.resume();
+                    isProcessing = false;
+                }, 2500);
+                return;
+            }
+
+            // Write directly to Firebase Realtime Database under 'dispatches'
+            const newRef = firebaseDb.ref('dispatches').push();
+            newRef.set({
+                id: newRef.key,
+                timestamp: new Date().toISOString(),
+                pkgId: parsedData.pkgId || "",
+                name: parsedData.name || "",
+                phone: parsedData.phone || "",
+                pincode: parsedData.pincode || "",
+                address: parsedData.address || "",
+                rawText: parsedData.rawText || ""
+            })
+            .then(() => {
+                const pkgSuffix = parsedData.pkgId ? ` [${parsedData.pkgId}]` : '';
+                showToast('success', 'Dispatched & Saved!' + pkgSuffix);
+            })
+            .catch(error => {
+                console.error("Firebase write error:", error);
+                showToast('error', 'Save failed: ' + (error.message || 'Unknown error'));
+            })
+            .finally(() => {
+                // Resume scanning after a delay to prevent accidental double scans
+                setTimeout(() => {
+                    if (html5QrCode.getState && html5QrCode.getState() === 3) {
+                        html5QrCode.resume();
+                    }
+                    isProcessing = false;
+                }, 2000);
+            });
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, usually better to ignore and keep scanning
+            // console.warn(`Code scan error = ${error}`);
+        }
+    </script>
+</body>
+
+</html>
