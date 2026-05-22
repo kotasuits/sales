@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management</title>
+    <style id="auth-guard-style">body { display: none !important; }</style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>enforceAuth();</script>
+
+    <!-- SheetJS for Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --purple: #8b5cf6;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(15, 23, 42, 0.6);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at top right, rgba(59,130,246,0.15), transparent 45%),
+                radial-gradient(circle at bottom left, rgba(139,92,246,0.15), transparent 45%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        nav {
+            display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+            margin-bottom: 30px; width: 100%; max-width: 1400px; margin-left: auto; margin-right: auto;
+        }
+        nav a {
+            text-decoration: none; color: #93c5fd; font-weight: 600; font-size: 0.9rem;
+            padding: 9px 20px; border: 1px solid rgba(59,130,246,0.4); border-radius: 50px;
+            background: rgba(59,130,246,0.1); backdrop-filter: blur(10px);
+            transition: all 0.25s; display: flex; align-items: center; gap: 7px;
+        }
+        nav a:hover, nav a.on {
+            background: rgba(59,130,246,0.3); border-color: rgba(59,130,246,0.7);
+            transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,0.25); color: white;
+        }
+
+        .page-header {
+            text-align: center; margin-bottom: 28px;
+            width: 100%; max-width: 1400px; margin-left: auto; margin-right: auto;
+        }
+        .page-header h1 {
+            font-size: 2.4rem; font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .page-header p { color: var(--text-muted); font-size: 1rem; margin-top: 6px; }
+
+        /* Analytics */
+        .analytics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px; width: 100%; max-width: 1400px;
+            margin: 0 auto 28px;
+        }
+        .analytics-card {
+            background: var(--card-bg); backdrop-filter: blur(16px);
+            border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: transform 0.3s;
+        }
+        .analytics-card:hover { transform: translateY(-2px); }
+        .analytics-card.accent-blue  { border-left: 4px solid var(--primary); }
+        .analytics-card.accent-green { border-left: 4px solid var(--success); }
+        .analytics-card.accent-warning { border-left: 4px solid var(--warning); }
+        .analytics-card.accent-purple { border-left: 4px solid var(--purple); }
+        .analytics-card.accent-red    { border-left: 4px solid var(--danger); }
+        .analytics-title { font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; font-weight: 600; }
+        .analytics-value { font-size: 1.8rem; font-weight: 700; color: #f1f5f9; }
+
+        /* Main card */
+        .main-card {
+            background: var(--card-bg); backdrop-filter: blur(16px);
+            border: 1px solid var(--border); border-radius: 20px; padding: 25px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            width: 100%; max-width: 1400px; margin: 0 auto;
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 14px;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .card-header h2 { font-size: 1.4rem; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+
+        /* Toolbar */
+        .toolbar-row {
+            display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;
+        }
+        .search-input {
+            flex: 2; min-width: 220px; padding: 10px 14px;
+            background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px;
+            color: white; font-size: 0.95rem; outline: none; transition: all 0.2s;
+        }
+        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .filter-select {
+            padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 10px; color: white; font-size: 0.9rem; outline: none; cursor: pointer;
+        }
+        .filter-select option { background: #1e293b; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 18px; border-radius: 10px; border: 1px solid transparent;
+            font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.25s; white-space: nowrap;
+        }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; }
+        .btn-p { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 4px 14px rgba(59,130,246,0.4); }
+        .btn-p:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,0.5); }
+        .btn-s { background: rgba(255,255,255,0.06); color: var(--text-main); border-color: var(--border); }
+        .btn-s:hover { background: rgba(255,255,255,0.12); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: var(--success-hover); transform: translateY(-1px); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-purple { background: linear-gradient(135deg,#8b5cf6,#7c3aed); color: white; }
+        .btn-purple:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-icon {
+            padding: 6px; border-radius: 6px; background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border); color: var(--text-main); cursor: pointer;
+            transition: all 0.2s; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .btn-icon:hover { background: rgba(59,130,246,0.2); border-color: var(--primary); color: white; }
+        .actions-group { display: flex; gap: 5px; flex-wrap: wrap; }
+
+        /* Table */
+        .table-wrap { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        .data-table th {
+            padding: 12px 14px; color: var(--text-muted); font-weight: 600;
+            background: rgba(15,23,42,0.4); border-bottom: 1px solid var(--border);
+            text-transform: uppercase; font-size: 0.76rem; white-space: nowrap;
+        }
+        .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .data-table tr:hover { background: rgba(255,255,255,0.02); }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 50px; font-size: 0.74rem; font-weight: 600; }
+        .badge-green  { background: rgba(16,185,129,0.2); color: #34d399; }
+        .badge-red    { background: rgba(239,68,68,0.2);  color: #f87171; }
+        .badge-yellow { background: rgba(245,158,11,0.2); color: #fbbf24; }
+        .badge-gray   { background: rgba(148,163,184,0.2); color: #cbd5e1; }
+        .badge-blue   { background: rgba(59,130,246,0.2); color: #93c5fd; }
+
+        /* Empty State */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .empty-state .icon { font-size: 3.5rem; margin-bottom: 14px; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(15,23,42,0.85); backdrop-filter: blur(8px);
+            z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal.open { display: flex; }
+        .modal-content {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px;
+            width: 100%; max-width: 600px; max-height: 92vh; overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+        }
+        .modal-content.wide { max-width: 950px; }
+        .modal-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        .modal-header h3 { font-size: 1.25rem; color: white; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; }
+        .modal-close:hover { color: white; }
+        .modal-body { padding: 24px; overflow-y: auto; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+
+        /* Form */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 16px; }
+        .form-group label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 10px; color: white; font-size: 0.93rem; outline: none; transition: all 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+        }
+        .form-group select option { background: #1e293b; }
+
+        /* Ledger stats */
+        .ledger-stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px; margin-bottom: 20px; background: rgba(15,23,42,0.4);
+            border-radius: 12px; padding: 16px; border: 1px solid var(--border);
+        }
+        .ledger-stat { display: flex; flex-direction: column; }
+        .ledger-stat label { font-size: 0.73rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+        .ledger-stat span { font-size: 1.2rem; font-weight: 700; color: #f1f5f9; }
+
+        /* Status select in table */
+        .status-select {
+            background: transparent; border: none; color: inherit; font-weight: 600;
+            font-size: 0.8rem; cursor: pointer; outline: none; padding: 2px 6px;
+            border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(15,23,42,0.5);
+        }
+        .status-select option { background: #1e293b; }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 12px 24px;
+            border-radius: 10px; font-weight: 600; color: white; z-index: 10000;
+            opacity: 0; transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+        #toast.success { background: #10b981; }
+        #toast.error   { background: #ef4444; }
+        #toast.info    { background: #3b82f6; }
+
+        /* Outstanding amount highlight */
+        .amt-pending { color: #f87171; font-weight: 700; }
+        .amt-clear   { color: #34d399; font-weight: 700; }
+
+        /* Customer name link */
+        .customer-link {
+            color: #60a5fa;
+            cursor: pointer;
+            transition: color 0.2s, text-decoration 0.2s;
+            display: inline-block;
+        }
+        .customer-link:hover {
+            color: var(--primary-hover) !important;
+            text-decoration: underline;
+        }
+
+        /* Spinner */
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; display: inline-block; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Pagination */
+        .pagination { display: flex; gap: 6px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+        .page-btn {
+            padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05); color: var(--text-muted); cursor: pointer; font-size: 0.82rem; transition: all 0.2s;
+        }
+        .page-btn:hover, .page-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav style="margin-bottom: 22px;">
+    <a href="prints/index.html">📄 Labels</a>
+    <a href="prints/scanner.html">🔍 Scanner</a>
+    <a href="prints/dispatched.html">📋 Dispatched</a>
+    <a href="uploads.html">📸 Upload Tracking</a>
+    <a href="search.html">🔎 Search Photos</a>
+    <a href="billing.html">🧾 Billing</a>
+    <a href="gst-billing.html">🧾 GST Billing</a>
+    <a href="customers.html" class="on">👤 Customers</a>
+    <a href="online-excel.html">📊 Online Excel</a>
+    <a href="#" onclick="handleLogout(event)" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:rgba(239,68,68,0.08);">🚪 Logout</a>
+</nav>
+
+<!-- Header -->
+<div class="page-header">
+    <h1>👤 Customer Management</h1>
+    <p>View, add, edit and manage all customer profiles, invoices & outstanding balances</p>
+</div>
+
+<!-- Analytics Cards -->
+<div class="analytics-grid">
+    <div class="analytics-card accent-blue">
+        <div class="analytics-title">👥 Total Customers</div>
+        <div class="analytics-value" id="stat-total">0</div>
+    </div>
+    <div class="analytics-card accent-green">
+        <div class="analytics-title">💰 Total Business Done</div>
+        <div class="analytics-value" id="stat-business">₹0</div>
+    </div>
+    <div class="analytics-card accent-red">
+        <div class="analytics-title">⏳ Total Outstanding</div>
+        <div class="analytics-value" id="stat-outstanding">₹0</div>
+    </div>
+    <div class="analytics-card accent-warning">
+        <div class="analytics-title">🔴 Customers with Dues</div>
+        <div class="analytics-value" id="stat-with-dues">0</div>
+    </div>
+    <div class="analytics-card accent-purple">
+        <div class="analytics-title">✅ Fully Cleared</div>
+        <div class="analytics-value" id="stat-cleared">0</div>
+    </div>
+</div>
+
+<!-- Main Table Card -->
+<div class="main-card">
+    <div class="card-header">
+        <h2>👤 Customer Directory</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-s btn-sm" onclick="triggerImport()">📂 Import Excel</button>
+            <button class="btn btn-success btn-sm" onclick="exportCustomersExcel()">📥 Export Excel</button>
+            <button class="btn btn-p btn-sm" onclick="openAddModal()">➕ Add Customer</button>
+            <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none;" onchange="handleImport(event)">
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar-row">
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search by name or phone..." oninput="renderTable()">
+        <select class="filter-select" id="filterDues" onchange="renderTable()">
+            <option value="all">All Customers</option>
+            <option value="pending">With Outstanding Dues</option>
+            <option value="clear">Fully Cleared</option>
+        </select>
+        <select class="filter-select" id="sortBy" onchange="renderTable()">
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="outstanding-desc">Sort: Highest Due First</option>
+            <option value="outstanding-asc">Sort: Lowest Due First</option>
+            <option value="business-desc">Sort: Highest Business</option>
+            <option value="last-billing">Sort: Recent Activity</option>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>GSTIN</th>
+                    <th>Total Business</th>
+                    <th>Outstanding</th>
+                    <th>Last Billing</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="customer-tbody"></tbody>
+        </table>
+        <div id="loading-state" style="text-align:center;padding:40px;display:none;"><div class="spinner"></div></div>
+        <div id="empty-state" class="empty-state" style="display:none;">
+            <div class="icon">👥</div>
+            <p>No customers found. Add your first customer to get started.</p>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- ═══════════════ ADD / EDIT CUSTOMER MODAL ═══════════════ -->
+<div class="modal" id="addEditModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">➕ Add Customer</h3>
+            <button class="modal-close" onclick="closeModal('addEditModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="f-name">Full Name *</label>
+                    <input type="text" id="f-name" placeholder="e.g. Acme Corp">
+                </div>
+                <div class="form-group">
+                    <label for="f-phone">Phone Number *</label>
+                    <input type="text" id="f-phone" placeholder="10-digit mobile" maxlength="10">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="f-address">Shipping Address</label>
+                <textarea id="f-address" rows="3" placeholder="Street, City, Pincode, State"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="f-gst">GSTIN (Optional)</label>
+                <input type="text" id="f-gst" placeholder="15-digit GSTIN" style="text-transform:uppercase;">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-s" onclick="closeModal('addEditModal')">Cancel</button>
+            <button class="btn btn-p" onclick="saveCustomer()">💾 Save Customer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ CUSTOMER LEDGER MODAL ═══════════════ -->
+<div class="modal" id="ledgerModal">
+    <div class="modal-content wide">
+        <div class="modal-header">
+            <h3>📋 Customer Ledger — <span id="ledger-cname" style="color:#60a5fa;"></span></h3>
+            <button class="modal-close" onclick="closeModal('ledgerModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <!-- Customer Stats -->
+            <div class="ledger-stats-grid">
+                <div class="ledger-stat">
+                    <label>Phone</label>
+                    <span id="ledger-phone" style="font-size:0.95rem;">—</span>
+                </div>
+                <div class="ledger-stat">
+                    <label>GSTIN</label>
+                    <span id="ledger-gst" style="font-size:0.85rem;">—</span>
+                </div>
+                <div class="ledger-stat">
+                    <label>Total Business</label>
+                    <span id="ledger-total" style="color:var(--success);">₹0.00</span>
+                </div>
+                <div class="ledger-stat">
+                    <label>Outstanding</label>
+                    <span id="ledger-outstanding" style="color:var(--danger);">₹0.00</span>
+                </div>
+                <div class="ledger-stat">
+                    <label>Total Invoices</label>
+                    <span id="ledger-inv-count">0</span>
+                </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+                <button class="btn btn-p btn-sm" onclick="newBillForLedgerCustomer()">➕ New Bill</button>
+                <button class="btn btn-s btn-sm" onclick="printLabelForLedgerCustomer()">🖨️ Print Label</button>
+                <button class="btn btn-success btn-sm" onclick="exportLedgerExcel()">📥 Export Excel</button>
+                <button class="btn btn-s btn-sm" onclick="shareWhatsAppLedger()">💬 WhatsApp</button>
+                <button class="btn btn-purple btn-sm" onclick="openExcelForCustomer(ledgerPhone)">📊 Open in Excel Page</button>
+            </div>
+
+            <!-- Invoice filter -->
+            <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+                <select class="filter-select" id="ledger-filter-status" onchange="renderLedgerTable()" style="flex:1;min-width:140px;">
+                    <option value="all">All Statuses</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select class="filter-select" id="ledger-filter-date" onchange="renderLedgerTable()" style="flex:1;min-width:140px;">
+                    <option value="all">All Time</option>
+                    <option value="month">This Month</option>
+                    <option value="last-month">Last Month</option>
+                    <option value="financial-year">Financial Year</option>
+                </select>
+            </div>
+
+            <!-- Ledger table -->
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice No</th>
+                            <th>Date</th>
+                            <th>Grand Total</th>
+                            <th>Paid</th>
+                            <th>Pending</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledger-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" id="ledger-delete-btn" onclick="deleteCustomerFromLedger()" style="margin-right:auto;">🗑️ Delete Customer</button>
+            <button class="btn btn-s btn-sm" onclick="openEditFromLedger()">✏️ Edit Details</button>
+            <button class="btn btn-s" onclick="closeModal('ledgerModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+    const db = firebaseDb;
+    let allCustomers = {};
+    let allBills = {};
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
+
+    // Ledger state
+    let ledgerPhone = null;
+    let editingPhone = null; // null = adding new
+
+    // Robust sorting helpers
+    const getBillTimestamp = (bill) => {
+        if (!bill) return 0;
+        const t = bill.createdAt ? new Date(bill.createdAt).getTime() : 0;
+        return isNaN(t) ? 0 : t;
+    };
+    const compareBillsDescending = (a, b) => {
+        const timeA = getBillTimestamp(a);
+        const timeB = getBillTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+        const invA = a.invoiceNo || '';
+        const invB = b.invoiceNo || '';
+        return invB.localeCompare(invA);
+    };
+
+    // ═══════════════ DATA LOADING ═══════════════
+    window.onload = function () {
+        if (!db) { showToast('Firebase not connected', 'error'); return; }
+        document.getElementById('loading-state').style.display = 'block';
+        db.ref('customers').on('value', snap => {
+            allCustomers = snap.exists() ? snap.val() : {};
+            recalcStats();
+            renderTable();
+        });
+        db.ref('bills').on('value', snap => {
+            allBills = snap.exists() ? snap.val() : {};
+            document.getElementById('loading-state').style.display = 'none';
+            recalcStats();
+            renderTable();
+            if (ledgerPhone) renderLedgerTable();
+        });
+    };
+
+    // ═══════════════ ANALYTICS ═══════════════
+    function recalcStats() {
+        const customers = Object.values(allCustomers);
+        let totalBusiness = 0, totalOutstanding = 0, withDues = 0, cleared = 0;
+
+        customers.forEach(c => {
+            totalBusiness   += parseFloat(c.totalBusiness || 0);
+            totalOutstanding += parseFloat(c.remainingBalance || 0);
+            if ((c.remainingBalance || 0) > 0) withDues++;
+            else cleared++;
+        });
+
+        document.getElementById('stat-total').textContent = customers.length;
+        document.getElementById('stat-business').textContent = '₹' + totalBusiness.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        document.getElementById('stat-outstanding').textContent = '₹' + totalOutstanding.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        document.getElementById('stat-with-dues').textContent = withDues;
+        document.getElementById('stat-cleared').textContent = cleared;
+    }
+
+    // ═══════════════ TABLE RENDERING ═══════════════
+    function renderTable() {
+        const searchVal = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+        const filterDues = document.getElementById('filterDues').value;
+        const sortBy = document.getElementById('sortBy').value;
+
+        let list = Object.entries(allCustomers).map(([phone, c]) => ({ phone, ...c }));
+
+        // Search
+        if (searchVal) {
+            list = list.filter(c =>
+                (c.name || '').toLowerCase().includes(searchVal) ||
+                (c.phone || '').includes(searchVal)
+            );
+        }
+
+        // Filter dues
+        if (filterDues === 'pending') list = list.filter(c => (c.remainingBalance || 0) > 0);
+        if (filterDues === 'clear')   list = list.filter(c => (c.remainingBalance || 0) <= 0);
+
+        // Sort
+        if (sortBy === 'name') list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        else if (sortBy === 'outstanding-desc') list.sort((a, b) => (b.remainingBalance || 0) - (a.remainingBalance || 0));
+        else if (sortBy === 'outstanding-asc')  list.sort((a, b) => (a.remainingBalance || 0) - (b.remainingBalance || 0));
+        else if (sortBy === 'business-desc')    list.sort((a, b) => (b.totalBusiness || 0) - (a.totalBusiness || 0));
+        else if (sortBy === 'last-billing') {
+            list.sort((a, b) => {
+                const timeA = a.lastBillingDate ? new Date(a.lastBillingDate).getTime() : 0;
+                const timeB = b.lastBillingDate ? new Date(b.lastBillingDate).getTime() : 0;
+                const validA = isNaN(timeA) ? 0 : timeA;
+                const validB = isNaN(timeB) ? 0 : timeB;
+                return validB - validA;
+            });
+        }
+
+        // Paginate
+        const totalPages = Math.ceil(list.length / PAGE_SIZE);
+        if (currentPage > totalPages) currentPage = 1;
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageList = list.slice(start, start + PAGE_SIZE);
+
+        const tbody = document.getElementById('customer-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('empty-state').style.display = list.length === 0 ? 'block' : 'none';
+
+        pageList.forEach((c, idx) => {
+            const outstanding = parseFloat(c.remainingBalance || 0);
+            const business    = parseFloat(c.totalBusiness || 0);
+            const lastDate    = c.lastBillingDate ? new Date(c.lastBillingDate).toLocaleDateString('en-IN') : '—';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="color:var(--text-muted);font-size:0.8rem;">${start + idx + 1}</td>
+                <td>
+                    <div class="customer-link" onclick="openLedger('${escHtml(c.phone)}')" style="font-weight:700;">${escHtml(c.name || '—')}</div>
+                    ${c.address ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${escHtml(c.address.substring(0, 50))}${c.address.length > 50 ? '…' : ''}</div>` : ''}
+                </td>
+                <td style="font-family:monospace;font-size:0.88rem;">${escHtml(c.phone || c.phone || '')}</td>
+                <td style="font-size:0.8rem;color:var(--text-muted);">${escHtml(c.gst || '—')}</td>
+                <td style="font-weight:600;">₹${business.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="${outstanding > 0 ? 'amt-pending' : 'amt-clear'}">₹${outstanding.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td style="font-size:0.82rem;color:var(--text-muted);">${lastDate}</td>
+                <td>
+                    <div class="actions-group">
+                        <button class="btn-icon" title="View Ledger" onclick="openLedger('${escHtml(c.phone)}')">📋</button>
+                        <button class="btn-icon" title="Open in Excel Page" onclick="openExcelForCustomer('${escHtml(c.phone)}')">📊</button>
+                        <button class="btn-icon" title="Edit" onclick="openEditModal('${escHtml(c.phone)}')">✏️</button>
+                        <button class="btn-icon" title="New Bill" onclick="goToBilling('${escHtml(c.phone)}')">🧾</button>
+                        <button class="btn-icon" title="WhatsApp" onclick="sendWhatsApp('${escHtml(c.phone)}','${escHtml(c.name || '')}',${outstanding.toFixed(2)})">💬</button>
+                        <button class="btn-icon" style="color:var(--danger);" title="Delete" onclick="deleteCustomer('${escHtml(c.phone)}','${escHtml(c.name || '')}')">🗑️</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        const pag = document.getElementById('pagination');
+        pag.innerHTML = '';
+        if (totalPages <= 1) return;
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+            btn.textContent = i;
+            btn.onclick = () => { currentPage = i; renderTable(); };
+            pag.appendChild(btn);
+        }
+    }
+
+    // ═══════════════ ADD / EDIT MODAL ═══════════════
+    function openAddModal() {
+        editingPhone = null;
+        document.getElementById('modal-title').textContent = '➕ Add New Customer';
+        document.getElementById('f-name').value = '';
+        document.getElementById('f-phone').value = '';
+        document.getElementById('f-address').value = '';
+        document.getElementById('f-gst').value = '';
+        document.getElementById('f-phone').readOnly = false;
+        openModal('addEditModal');
+    }
+
+    function openEditModal(phone) {
+        const c = allCustomers[phone];
+        if (!c) return;
+        editingPhone = phone;
+        document.getElementById('modal-title').textContent = '✏️ Edit Customer — ' + (c.name || phone);
+        document.getElementById('f-name').value = c.name || '';
+        document.getElementById('f-phone').value = phone;
+        document.getElementById('f-address').value = c.address || '';
+        document.getElementById('f-gst').value = c.gst || '';
+        document.getElementById('f-phone').readOnly = true; // phone is the key, can't change
+        openModal('addEditModal');
+    }
+
+    function openEditFromLedger() {
+        if (!ledgerPhone) return;
+        closeModal('ledgerModal');
+        openEditModal(ledgerPhone);
+    }
+
+    async function saveCustomer() {
+        const name    = document.getElementById('f-name').value.trim();
+        const phone   = document.getElementById('f-phone').value.trim().replace(/\D/g, '');
+        const address = document.getElementById('f-address').value.trim();
+        const gst     = document.getElementById('f-gst').value.trim().toUpperCase();
+
+        if (!name) { showToast('Please enter Customer Name.', 'error'); return; }
+        if (!phone || phone.length < 10) { showToast('Please enter a valid 10-digit Phone Number.', 'error'); return; }
+
+        if (!editingPhone && allCustomers[phone]) {
+            if (!confirm(`A customer with phone ${phone} (${allCustomers[phone].name}) already exists. Update their details?`)) return;
+        }
+
+        try {
+            await db.ref(`customers/${phone}`).update({ name, phone, address, gst,
+                lastBillingDate: allCustomers[phone] ? (allCustomers[phone].lastBillingDate || null) : null
+            });
+            await syncLedger(phone);
+            showToast(`Customer "${name}" saved successfully.`, 'success');
+            closeModal('addEditModal');
+        } catch (e) {
+            showToast('Failed to save: ' + e.message, 'error');
+        }
+    }
+
+    // ═══════════════ DELETE ═══════════════
+    async function deleteCustomer(phone, name) {
+        if (!confirm(`Delete customer "${name}" (${phone})? Their historical invoices will remain in the database.`)) return;
+        try {
+            await db.ref(`customers/${phone}`).remove();
+            showToast(`Customer "${name}" deleted.`, 'success');
+        } catch (e) {
+            showToast('Delete failed: ' + e.message, 'error');
+        }
+    }
+
+    async function deleteCustomerFromLedger() {
+        if (!ledgerPhone) return;
+        const c = allCustomers[ledgerPhone];
+        if (!c) return;
+        closeModal('ledgerModal');
+        await deleteCustomer(ledgerPhone, c.name || ledgerPhone);
+    }
+
+    // ═══════════════ LEDGER MODAL ═══════════════
+    function openLedger(phone) {
+        ledgerPhone = phone;
+        const c = allCustomers[phone] || {};
+        document.getElementById('ledger-cname').textContent = c.name || phone;
+        document.getElementById('ledger-phone').textContent = phone;
+        document.getElementById('ledger-gst').textContent = c.gst || '—';
+        document.getElementById('ledger-total').textContent = '₹' + (parseFloat(c.totalBusiness || 0)).toFixed(2);
+        document.getElementById('ledger-outstanding').textContent = '₹' + (parseFloat(c.remainingBalance || 0)).toFixed(2);
+        document.getElementById('ledger-delete-btn').style.display = allCustomers[phone] ? 'inline-flex' : 'none';
+
+        document.getElementById('ledger-filter-status').value = 'all';
+        document.getElementById('ledger-filter-date').value = 'all';
+        renderLedgerTable();
+        openModal('ledgerModal');
+    }
+
+    function renderLedgerTable() {
+        if (!ledgerPhone) return;
+        const statusFilter = document.getElementById('ledger-filter-status').value;
+        const dateFilter   = document.getElementById('ledger-filter-date').value;
+
+        let bills = Object.entries(allBills)
+            .filter(([k, b]) => b.customerPhone === ledgerPhone)
+            .map(([k, b]) => ({ id: k, ...b }))
+            .sort(compareBillsDescending);
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const lastMonthYear = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
+        const lastMonthVal  = now.getMonth() === 0 ? 11 : now.getMonth()-1;
+        const startOfLastMonth = new Date(lastMonthYear, lastMonthVal, 1).getTime();
+        const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+        let fyStartYear = now.getFullYear(); if (now.getMonth() < 3) fyStartYear--;
+        const startOfFY = new Date(fyStartYear, 3, 1).getTime();
+        const endOfFY   = new Date(fyStartYear+1, 2, 31, 23, 59, 59).getTime();
+
+        if (statusFilter !== 'all') bills = bills.filter(b => b.status === statusFilter);
+        if (dateFilter === 'month')          bills = bills.filter(b => new Date(b.createdAt).getTime() >= startOfMonth);
+        else if (dateFilter === 'last-month') bills = bills.filter(b => { const t = new Date(b.createdAt).getTime(); return t >= startOfLastMonth && t <= endOfLastMonth; });
+        else if (dateFilter === 'financial-year') bills = bills.filter(b => { const t = new Date(b.createdAt).getTime(); return t >= startOfFY && t <= endOfFY; });
+
+        document.getElementById('ledger-inv-count').textContent = bills.length;
+
+        const tbody = document.getElementById('ledger-tbody');
+        tbody.innerHTML = '';
+        if (bills.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">No invoices match the current filters.</td></tr>';
+            return;
+        }
+
+        bills.forEach(bill => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight:700;">${escHtml(bill.invoiceNo)}</td>
+                <td style="font-size:0.82rem;color:var(--text-muted);">${new Date(bill.createdAt).toLocaleDateString('en-IN')}</td>
+                <td style="font-weight:600;">₹${parseFloat(bill.grandTotal||0).toFixed(2)}</td>
+                <td style="color:var(--success);cursor:pointer;" title="Click to Edit Amount Paid" onclick="editPaidAmount('${bill.id}')">
+                    ₹${parseFloat(bill.amountPaid||0).toFixed(2)} <span style="font-size:0.75rem;margin-left:4px;opacity:0.6;">✏️</span>
+                </td>
+                <td class="${parseFloat(bill.amountPending||0)>0?'amt-pending':'amt-clear'}">₹${parseFloat(bill.amountPending||0).toFixed(2)}</td>
+                <td>
+                    <select class="status-select" data-id="${bill.id}" onchange="changeInvoiceStatus('${bill.id}', this.value)" style="color:${statusColor(bill.status)}">
+                        <option value="unpaid"    ${bill.status==='unpaid'?'selected':''}>❌ Unpaid</option>
+                        <option value="partial"   ${bill.status==='partial'?'selected':''}>⏳ Partial</option>
+                        <option value="paid"      ${bill.status==='paid'?'selected':''}>✅ Paid</option>
+                        <option value="cancelled" ${bill.status==='cancelled'?'selected':''}>🚫 Cancelled</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="actions-group">
+                        <button class="btn-icon" title="Edit in Billing" onclick="editBillInBilling('${bill.id}')">✏️</button>
+                        <button class="btn-icon" title="View Invoice" onclick="viewInvoice('${bill.id}')">🖨️</button>
+                        <button class="btn-icon" style="color:var(--danger);" title="Delete Invoice" onclick="deleteInvoice('${bill.id}','${escHtml(bill.invoiceNo)}')">🗑️</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function statusColor(s) {
+        if (s === 'paid')      return '#34d399';
+        if (s === 'partial')   return '#fbbf24';
+        if (s === 'cancelled') return '#94a3b8';
+        return '#f87171';
+    }
+
+    // ═══════════════ CHANGE INVOICE STATUS ═══════════════
+    async function changeInvoiceStatus(billId, newStatus) {
+        const bill = allBills[billId];
+        if (!bill) return;
+
+        // If the bill has multiple payment deposits, warn the user
+        let hasMultiplePayments = bill.payments && Array.isArray(bill.payments) && bill.payments.length > 1;
+        if (hasMultiplePayments) {
+            if (!confirm("This invoice has multiple deposits recorded. Changing payment status/amount here will consolidate them into a single deposit. Do you want to continue?")) {
+                if (ledgerPhone) renderLedgerTable();
+                return;
+            }
+        }
+
+        try {
+            let amountPaid    = parseFloat(bill.amountPaid || 0);
+            let amountPending = parseFloat(bill.amountPending || 0);
+            const grandTotal  = parseFloat(bill.grandTotal || 0);
+
+            let statusToSave = newStatus;
+
+            if (newStatus === 'paid') {
+                amountPaid    = grandTotal;
+                amountPending = 0;
+            } else if (newStatus === 'unpaid') {
+                amountPaid    = 0;
+                amountPending = grandTotal;
+            } else if (newStatus === 'cancelled') {
+                amountPending = 0;
+            } else if (newStatus === 'partial') {
+                const input = prompt(`Enter Amount Paid (Grand Total: ₹${grandTotal.toFixed(2)}):`, amountPaid);
+                if (input === null) {
+                    if (ledgerPhone) renderLedgerTable();
+                    return;
+                }
+                const parsed = parseFloat(input);
+                if (isNaN(parsed) || parsed < 0 || parsed > grandTotal) {
+                    alert(`Please enter a valid amount between 0 and ${grandTotal.toFixed(2)}`);
+                    if (ledgerPhone) renderLedgerTable();
+                    return;
+                }
+                amountPaid = parsed;
+                amountPending = Math.max(0, grandTotal - amountPaid);
+                if (amountPending <= 0) {
+                    statusToSave = 'paid';
+                } else if (amountPaid === 0) {
+                    statusToSave = 'unpaid';
+                }
+            }
+
+            const today = new Date().toLocaleDateString('en-CA');
+            const updatedPayments = [{
+                amount: amountPaid,
+                date: today
+            }];
+
+            await db.ref(`bills/${billId}`).update({
+                status: statusToSave,
+                amountPaid,
+                amountPending,
+                paymentTimestamp: statusToSave === 'paid' ? new Date().toISOString() : (bill.paymentTimestamp || null),
+                payments: updatedPayments,
+                updatedAt: new Date().toISOString()
+            });
+            await syncLedger(bill.customerPhone);
+            showToast(`Invoice ${bill.invoiceNo} marked as ${statusToSave.toUpperCase()}.`, 'success');
+        } catch (e) {
+            showToast('Failed to update status: ' + e.message, 'error');
+        }
+    }
+
+    async function editPaidAmount(billId) {
+        const bill = allBills[billId];
+        if (!bill) return;
+
+        // If the bill has multiple payment deposits, warn the user
+        let hasMultiplePayments = bill.payments && Array.isArray(bill.payments) && bill.payments.length > 1;
+        if (hasMultiplePayments) {
+            if (!confirm("This invoice has multiple deposits recorded. Changing payment status/amount here will consolidate them into a single deposit. Do you want to continue?")) {
+                return;
+            }
+        }
+
+        try {
+            const grandTotal  = parseFloat(bill.grandTotal || 0);
+            const currentPaid = parseFloat(bill.amountPaid || 0);
+            const input = prompt(`Enter Amount Paid for Invoice ${bill.invoiceNo} (Grand Total: ₹${grandTotal.toFixed(2)}):`, currentPaid);
+            if (input === null) return;
+            const parsed = parseFloat(input);
+            if (isNaN(parsed) || parsed < 0 || parsed > grandTotal) {
+                alert(`Please enter a valid amount between 0 and ${grandTotal.toFixed(2)}`);
+                return;
+            }
+
+            let newStatus = 'partial';
+            if (parsed === 0) {
+                newStatus = 'unpaid';
+            } else if (parsed >= grandTotal) {
+                newStatus = 'paid';
+            }
+
+            const today = new Date().toLocaleDateString('en-CA');
+            const updatedPayments = [{
+                amount: parsed,
+                date: today
+            }];
+
+            await db.ref(`bills/${billId}`).update({
+                status: newStatus,
+                amountPaid: parsed,
+                amountPending: Math.max(0, grandTotal - parsed),
+                paymentTimestamp: newStatus === 'paid' ? new Date().toISOString() : (bill.paymentTimestamp || null),
+                payments: updatedPayments,
+                updatedAt: new Date().toISOString()
+            });
+            await syncLedger(bill.customerPhone);
+            showToast(`Invoice ${bill.invoiceNo} payment updated.`, 'success');
+        } catch (e) {
+            showToast('Failed to update payment: ' + e.message, 'error');
+        }
+    }
+
+    // ═══════════════ DELETE INVOICE ═══════════════
+    async function deleteInvoice(billId, invoiceNo) {
+        const bill = allBills[billId];
+        if (!bill) return;
+        if (!confirm(`Permanently delete Invoice ${invoiceNo}? This cannot be undone.`)) return;
+        try {
+            const phone = bill.customerPhone;
+            await db.ref(`bills/${billId}`).remove();
+            await syncLedger(phone);
+            showToast(`Invoice ${invoiceNo} deleted.`, 'success');
+        } catch (e) {
+            showToast('Delete failed: ' + e.message, 'error');
+        }
+    }
+
+    // ═══════════════ SYNC LEDGER TOTALS ═══════════════
+    async function syncLedger(phone) {
+        const custSnap = await db.ref(`customers/${phone}`).once('value');
+        if (!custSnap.exists()) return;
+        const billsSnap = await db.ref('bills').orderByChild('customerPhone').equalTo(phone).once('value');
+        let totalBusiness = 0, remainingBalance = 0, lastDate = 0;
+        if (billsSnap.exists()) {
+            Object.values(billsSnap.val()).forEach(b => {
+                if (b.status !== 'cancelled') {
+                    totalBusiness    += parseFloat(b.grandTotal || 0);
+                    remainingBalance += parseFloat(b.amountPending || 0);
+                }
+                const t = new Date(b.createdAt).getTime();
+                if (!isNaN(t) && t > lastDate) lastDate = t;
+            });
+        }
+        await db.ref(`customers/${phone}`).update({
+            totalBusiness, remainingBalance,
+            lastBillingDate: lastDate > 0 ? new Date(lastDate).toISOString() : null
+        });
+        // Refresh ledger modal if open
+        if (ledgerPhone === phone) {
+            const c = allCustomers[phone] || {};
+            document.getElementById('ledger-total').textContent = '₹' + totalBusiness.toFixed(2);
+            document.getElementById('ledger-outstanding').textContent = '₹' + remainingBalance.toFixed(2);
+        }
+    }
+
+    // ═══════════════ QUICK ACTIONS ═══════════════
+    function goToBilling(phone) {
+        window.location.href = `billing.html?phone=${encodeURIComponent(phone)}`;
+    }
+
+    function openExcelForCustomer(phone) {
+        if (!phone) return;
+        window.open(`online-excel.html?tab=invoices&search=${encodeURIComponent(phone)}`, '_blank');
+    }
+
+    function newBillForLedgerCustomer() {
+        if (!ledgerPhone) return;
+        window.location.href = `billing.html?newbill=${encodeURIComponent(ledgerPhone)}`;
+    }
+
+    function editBillInBilling(billId) {
+        const bill = allBills[billId] || {};
+        if (bill.isGstBill) {
+            window.location.href = `gst-billing.html?editbill=${encodeURIComponent(billId)}`;
+        } else {
+            window.location.href = `billing.html?editbill=${encodeURIComponent(billId)}`;
+        }
+    }
+
+    function viewInvoice(billId) {
+        window.open(`online-excel.html?view=${billId}`, '_blank');
+    }
+
+    function printLabelForLedgerCustomer() {
+        if (!ledgerPhone) return;
+        const c = allCustomers[ledgerPhone] || {};
+        window.open(`prints/index.html`, '_blank');
+    }
+
+    function sendWhatsApp(phone, name, outstanding) {
+        const formattedPhone = phone.length === 10 ? '91' + phone : phone;
+        const msg = outstanding > 0
+            ? `Hello ${name},\nYou have an outstanding balance of *₹${outstanding.toFixed(2)}*.\nPlease clear your dues at your earliest convenience.\nThank you!`
+            : `Hello ${name},\nThank you for your payment! Your account is fully cleared.\nThank you for your business!`;
+        window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function shareWhatsAppLedger() {
+        if (!ledgerPhone) return;
+        const c = allCustomers[ledgerPhone] || {};
+        const outstanding = parseFloat(c.remainingBalance || 0);
+        sendWhatsApp(ledgerPhone, c.name || ledgerPhone, outstanding);
+    }
+
+    // ═══════════════ EXCEL EXPORT / IMPORT ═══════════════
+    function exportCustomersExcel() {
+        const rows = Object.entries(allCustomers).map(([phone, c]) => ({
+            'Name':               c.name || '',
+            'Phone':              phone,
+            'Address':            c.address || '',
+            'GSTIN':              c.gst || '',
+            'Total Business':     parseFloat(c.totalBusiness || 0).toFixed(2),
+            'Outstanding Balance':parseFloat(c.remainingBalance || 0).toFixed(2),
+            'Last Billing Date':  c.lastBillingDate ? new Date(c.lastBillingDate).toLocaleDateString('en-IN') : ''
+        }));
+        if (rows.length === 0) { showToast('No customers to export.', 'error'); return; }
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+        XLSX.writeFile(wb, `Customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast('Customer list exported.', 'success');
+    }
+
+    function exportLedgerExcel() {
+        if (!ledgerPhone) return;
+        const c = allCustomers[ledgerPhone] || {};
+        const bills = Object.entries(allBills)
+            .filter(([k, b]) => b.customerPhone === ledgerPhone)
+            .map(([k, b]) => ({
+                'Invoice No': b.invoiceNo,
+                'Date': new Date(b.createdAt).toLocaleDateString('en-IN'),
+                'Grand Total': parseFloat(b.grandTotal || 0).toFixed(2),
+                'Amount Paid': parseFloat(b.amountPaid || 0).toFixed(2),
+                'Pending': parseFloat(b.amountPending || 0).toFixed(2),
+                'Status': (b.status || '').toUpperCase(),
+                'Notes': b.notes || ''
+            }));
+        if (bills.length === 0) { showToast('No invoices to export.', 'error'); return; }
+        const ws = XLSX.utils.json_to_sheet(bills);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Ledger');
+        XLSX.writeFile(wb, `Ledger_${(c.name||ledgerPhone).replace(/\s+/g,'_')}.xlsx`);
+        showToast('Ledger exported.', 'success');
+    }
+
+    function triggerImport() {
+        document.getElementById('importFile').click();
+    }
+
+    function handleImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws);
+                let count = 0;
+                for (const row of rows) {
+                    const phone = String(row['Phone'] || row['phone'] || '').replace(/\D/g, '');
+                    const name  = row['Name'] || row['name'] || row['Customer Name'] || '';
+                    if (phone && phone.length >= 10 && name) {
+                        await db.ref(`customers/${phone}`).update({
+                            name, phone,
+                            address: row['Address'] || row['address'] || '',
+                            gst: String(row['GSTIN'] || row['GST'] || '').toUpperCase().trim()
+                        });
+                        count++;
+                    }
+                }
+                showToast(`Imported ${count} customers successfully.`, 'success');
+                event.target.value = '';
+            } catch (err) {
+                showToast('Import failed: ' + err.message, 'error');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ═══════════════ DEEP LINK HANDLING ═══════════════
+    // billing.html can link back with ?phone=xxx to open ledger
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('ledger')) {
+        window.addEventListener('load', () => setTimeout(() => openLedger(urlParams.get('ledger')), 800));
+    }
+
+    // ═══════════════ UTILITIES ═══════════════
+    function openModal(id)  { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    function showToast(msg, type = 'info') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'show ' + type;
+        setTimeout(() => t.classList.remove('show'), 3200);
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+</script>
+
+</body>
+</html>

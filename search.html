@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Tracking Photos</title>
+    <style id="auth-guard-style">body { display: none !important; }</style>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>enforceAuth();</script>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 40%),
+                radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.15), transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-photo {
+            width: 100%;
+            height: 180px;
+            object-fit: contain;
+            background: #000;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .card-content {
+            padding: 15px;
+        }
+
+        .card-phone {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: #f1f5f9;
+        }
+
+        .card-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        .card-time {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .nav-links {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 16px;
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* Modal */
+        #imod {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.9);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        #imod.open { display: flex; }
+        #imod img { max-width: 90vw; max-height: 88vh; border-radius: 14px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: white; cursor: pointer; }
+
+        @media(max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .header h1 {
+                font-size: 2rem;
+            }
+            .glass-card {
+                padding: 15px;
+                border-radius: 16px;
+            }
+            .status-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            .nav-links {
+                gap: 10px;
+                padding: 0 5px;
+            }
+            .nav-links a {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+                flex: 1 1 calc(50% - 10px);
+                text-align: center;
+            }
+            #imod img {
+                max-width: 95vw;
+                max-height: 80vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>📸 Photo Records</h1>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="loadStatusData()" style="background:none; border:1px solid rgba(59,130,246,0.5); color:#60a5fa; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600;">↻ Refresh</button>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="🔍 Search by phone number, name, or package ID..." onkeyup="filterCards()">
+        </div>
+        <div id="statusGrid" class="status-grid">
+            <!-- Status cards will be injected here -->
+        </div>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <p>No tracking updates found. Start by uploading a photo!</p>
+        </div>
+    </div>
+
+    <div class="nav-links">
+        <a href="prints/index.html">📄 Labels</a>
+        <a href="prints/scanner.html">🔍 Scanner</a>
+        <a href="prints/dispatched.html">📋 Dispatched</a>
+        <a href="uploads.html">📸 Upload Tracking</a>
+        <a href="search.html" class="on">🔎 Search Photos</a>
+        <a href="billing.html">🧾 Billing</a>
+        <a href="gst-billing.html">🧾 GST Billing</a>
+        <a href="customers.html">👤 Customers</a>
+        <a href="online-excel.html">📊 Online Excel</a>
+        <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>
+    </div>
+
+    <div id="imod" onclick="this.classList.remove('open')">
+        <span class="close-btn">&times;</span>
+        <img id="mimg" src="">
+    </div>
+
+    <script>
+        let allRecords = [];
+
+        function safeDate(val) {
+            if (!val) return new Date(0);
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? new Date(0) : d;
+        }
+
+        function safeDateStr(val) {
+            if (!val) return 'N/A';
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
+        }
+
+        window.onload = function() {
+            loadStatusData();
+        }
+
+        async function loadStatusData() {
+            const grid = document.getElementById('statusGrid');
+            const empty = document.getElementById('emptyState');
+            
+            grid.innerHTML = '<div class="empty-state"><div class="spinner" style="width:40px;height:40px;margin:20px auto;border:3px solid rgba(255,255,255,0.1);border-top-color:#60a5fa;border-radius:50%;animation:spin 1s linear infinite;"></div><p>Fetching records...</p></div>';
+            
+            allRecords = [];
+
+            // 1. Try local storage
+            const localData = JSON.parse(localStorage.getItem('trackingData') || '{}');
+            Object.entries(localData).forEach(([id, data]) => {
+                allRecords.push({
+                    phone: id,
+                    photo: data.photo,
+                    status: data.status || 'Dispatched',
+                    updateTime: data.updateTime,
+                    name: 'Local Record',
+                    pkgId: data.pkgId || ''
+                });
+            });
+
+            // 2. Try Firebase Database
+            let dbRecords = [];
+            let loaded = false;
+
+            if (firebaseDb) {
+                try {
+                    const snapshot = await firebaseDb.ref('records').once('value');
+                    const val = snapshot.val();
+                    if (val) {
+                        dbRecords = Array.isArray(val) ? val : Object.values(val);
+                    }
+                    dbRecords = dbRecords.filter(r => r !== null && r !== undefined);
+                    loaded = true;
+                } catch (e) {
+                    console.error("Firebase DB fetch failed:", e);
+                }
+            }
+
+            // 3. Fallback to GitHub
+            if (!loaded) {
+                const cfg = JSON.parse(localStorage.getItem('ghTrackCfg') || '{}');
+                if (!cfg.repo) {
+                    cfg.repo = "ezyship/track";
+                    localStorage.setItem('ghTrackCfg', JSON.stringify(cfg));
+                }
+                
+                if (cfg.token && cfg.repo) {
+                    try {
+                        const res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/records.json?ref=${cfg.branch || 'main'}&t=${Date.now()}`, {
+                            headers: { 'Authorization': 'token ' + cfg.token }
+                        });
+                        
+                        if (res.ok) {
+                            const d = await res.json();
+                            const decoded = atob(d.content.replace(/\n/g, ''));
+                            dbRecords = decoded.trim() ? JSON.parse(decoded) : [];
+                            loaded = true;
+                        }
+                    } catch (e) { console.error("GitHub fetch failed:", e); }
+                }
+
+                if (!loaded && cfg.repo) {
+                    try {
+                        const res = await fetch(`https://raw.githubusercontent.com/${cfg.repo}/${cfg.branch || 'main'}/records.json?t=${Date.now()}`);
+                        if (res.ok) {
+                            const text = await res.text();
+                            dbRecords = text.trim() ? JSON.parse(text) : [];
+                            loaded = true;
+                        }
+                    } catch (e) { console.error("Public raw GitHub fetch failed:", e); }
+                }
+            }
+
+            if (loaded) {
+                dbRecords.forEach(r => {
+                    if (!allRecords.find(lr => lr.photo === r.photoUrl)) {
+                        allRecords.push({
+                            phone: r.phone,
+                            photo: r.photoUrl,
+                            status: 'Logged',
+                            updateTime: r.uploadedAt,
+                            name: r.name,
+                            pkgId: r.pkgId || ''
+                        });
+                    }
+                });
+            }
+
+            renderGrid(allRecords);
+        }
+
+        function renderGrid(records) {
+            const grid = document.getElementById('statusGrid');
+            const empty = document.getElementById('emptyState');
+
+            if (records.length === 0) {
+                empty.style.display = 'block';
+                grid.style.display = 'none';
+                return;
+            }
+
+            records.sort((a, b) => safeDate(b.updateTime) - safeDate(a.updateTime));
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+            grid.innerHTML = '';
+
+            records.forEach(data => {
+                const card = document.createElement('div');
+                card.className = 'status-card';
+                card.innerHTML = `
+                    <img src="${data.photo}" class="card-photo" onclick="openMod('${data.photo}')" onerror="this.src='https://via.placeholder.com/400x250?text=No+Photo'">
+                    <div class="card-content">
+                        <div class="card-phone">${data.name ? data.name + ' — ' : ''}${data.phone}</div>
+                        ${data.pkgId ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:5px;">📦 ID: ${data.pkgId}</div>` : ''}
+                        <div class="card-status">${data.status}</div>
+                        <span class="card-time">Updated: ${safeDateStr(data.updateTime)}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterCards() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allRecords.filter(r => 
+                r.phone.toLowerCase().includes(query) || 
+                (r.name && r.name.toLowerCase().includes(query)) ||
+                (r.pkgId && r.pkgId.toLowerCase().includes(query))
+            );
+            renderGrid(filtered);
+        }
+
+        function openMod(url) {
+            document.getElementById('mimg').src = url;
+            document.getElementById('imod').classList.add('open');
+        }
+    </script>
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</body>
+
+</html>

@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reseller Config Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="firebase-config.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --secondary: #06b6d4;
+            --bg: #0a0f1e;
+            --card: rgba(20, 30, 55, .78);
+            --inp: rgba(10, 15, 35, .7);
+            --txt: #f1f5f9;
+            --muted: #94a3b8;
+            --bdr: rgba(255, 255, 255, .09);
+            --ok: #10b981;
+            --err: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            background-image: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, .15), transparent 50%),
+                              radial-gradient(ellipse at 80% 100%, rgba(6, 182, 212, .1), transparent 50%);
+            color: var(--txt);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px 16px 60px;
+        }
+
+        /* Verification Screen */
+        .vault-lock-screen {
+            max-width: 440px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--bdr);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .vault-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #a855f7, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .vault-lock-screen h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .vault-lock-screen p {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 24px;
+        }
+
+        /* Config Dashboard */
+        .config-dashboard {
+            display: none;
+            width: 100%;
+            max-width: 960px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 22px;
+        }
+
+        @media(min-width: 768px) {
+            .grid-layout {
+                grid-template-columns: 1fr 1fr;
+            }
+            .span-2 {
+                grid-column: span 2;
+            }
+        }
+
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--bdr);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, .25);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--pl);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--bdr);
+            padding-bottom: 10px;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: var(--inp);
+            border: 1px solid var(--bdr);
+            border-radius: 10px;
+            padding: 11px 14px;
+            color: var(--txt);
+            font-size: .92rem;
+            outline: none;
+            transition: all .2s;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .25);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media(min-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* Features Toggle Switch Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media(min-width: 600px) {
+            .feature-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .feature-item {
+            background: rgba(10, 15, 35, .4);
+            border: 1px solid var(--bdr);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .feature-item:hover {
+            border-color: rgba(99, 102, 241, .3);
+            background: rgba(99, 102, 241, .03);
+        }
+
+        .feature-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .feature-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--txt);
+        }
+
+        .feature-desc {
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+
+        /* Custom Toggle Switch styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 24px;
+            border: 1px solid var(--bdr);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Buttons & Footer */
+        .action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            font-weight: 600;
+            font-size: 0.92rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .btn-p {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            box-shadow: 0 10px 20px rgba(99, 102, 241, .25);
+        }
+
+        .btn-p:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(99, 102, 241, .4);
+        }
+
+        .btn-s {
+            background: linear-gradient(135deg, var(--secondary), #0891b2);
+            box-shadow: 0 10px 20px rgba(6, 182, 212, .2);
+        }
+
+        .btn-s:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(6, 182, 212, .3);
+        }
+
+        .btn-reset {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bdr);
+            color: var(--muted);
+        }
+
+        .btn-reset:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .btn-nav {
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--pl);
+            margin-right: auto;
+        }
+
+        .btn-nav:hover {
+            background: rgba(99, 102, 241, 0.25);
+            color: #fff;
+        }
+
+        /* Toast notifications */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            color: white;
+            z-index: 10000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #toast.ok {
+            background: var(--ok);
+        }
+
+        #toast.err {
+            background: var(--err);
+        }
+
+        #toast.info {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Password Verification Shield -->
+    <div class="vault-lock-screen" id="vault-lock">
+        <div class="vault-icon">🔒</div>
+        <h2>Vault Authentication</h2>
+        <p>Please enter the Setup Access Key to configure features & API parameters.</p>
+        <div class="form-group" style="text-align: left; margin-bottom: 20px;">
+            <label for="vault-key">Access Key</label>
+            <input type="password" id="vault-key" placeholder="Enter security key..." 
+                   onkeydown="if(event.key==='Enter') verifyKey()">
+        </div>
+        <button class="btn btn-p" onclick="verifyKey()" style="width: 100%;">Verify Key</button>
+    </div>
+
+    <!-- 2. Configuration Workspace -->
+    <div class="config-dashboard" id="config-workspace">
+        <div class="header">
+            <h1>⚙️ Portal Configuration Vault</h1>
+            <p>Define global Firebase credentials, sync sheets, and customize active user modules</p>
+        </div>
+
+        <div class="grid-layout">
+            
+            <!-- Panel 1: Portal Details -->
+            <div class="card">
+                <div class="card-title">📝 Application Settings</div>
+                <div class="form-group">
+                    <label for="cfg-app-name">Application Name</label>
+                    <input type="text" id="cfg-app-name" placeholder="e.g. EzyShip Portal">
+                </div>
+                <div class="form-group">
+                    <label for="cfg-setup-key">Setup Access Key</label>
+                    <input type="text" id="cfg-setup-key" placeholder="New access key for setup.html">
+                </div>
+                <div class="form-group">
+                    <label for="cfg-sheets-url">Google Sheets Web App URL</label>
+                    <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec">
+                </div>
+            </div>
+
+            <!-- Panel 2: Firebase Connection Parameters -->
+            <div class="card">
+                <div class="card-title">🔥 Firebase Credentials</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fb-api-key">API Key</label>
+                        <input type="text" id="fb-api-key" placeholder="apiKey">
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-auth-domain">Auth Domain</label>
+                        <input type="text" id="fb-auth-domain" placeholder="authDomain">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fb-db-url">Database URL</label>
+                        <input type="text" id="fb-db-url" placeholder="databaseURL">
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-project-id">Project ID</label>
+                        <input type="text" id="fb-project-id" placeholder="projectId">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fb-storage-bucket">Storage Bucket</label>
+                        <input type="text" id="fb-storage-bucket" placeholder="storageBucket">
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-messaging-id">Messaging Sender ID</label>
+                        <input type="text" id="fb-messaging-id" placeholder="messagingSenderId">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fb-app-id">App ID</label>
+                        <input type="text" id="fb-app-id" placeholder="appId">
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-measurement-id">Measurement ID</label>
+                        <input type="text" id="fb-measurement-id" placeholder="measurementId">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3: Toggle User Modules -->
+            <div class="card span-2">
+                <div class="card-title">🧩 Enabled Feature Modules</div>
+                <div class="feature-grid">
+                    
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">📄 Labels</span>
+                            <span class="feature-desc">Generate, customize & print item shipping labels</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-labels">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">🔍 Scanner</span>
+                            <span class="feature-desc">Scan barcodes & upload items directly using camera</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-scanner">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">📋 Dispatched</span>
+                            <span class="feature-desc">Track and sync delivery updates in spreadsheet logs</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-dispatched">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">📸 Upload Tracking</span>
+                            <span class="feature-desc">Capture & upload tracking parcel photos to DB/GitHub</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-uploads">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">🔎 Search Photos</span>
+                            <span class="feature-desc">Search parcel photos by customer phone ending digits</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-search">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">🧾 Billing</span>
+                            <span class="feature-desc">Standard invoice creation, pricing & ledger tracking</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-billing">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">🧾 GST Billing</span>
+                            <span class="feature-desc">Create Tax Invoices with detailed GST calculations</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-gstBilling">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">👤 Customers</span>
+                            <span class="feature-desc">Manage profiles, outstanding balance, and ledger history</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-customers">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-info">
+                            <span class="feature-name">📊 Online Excel</span>
+                            <span class="feature-desc">Full interactive sheet editor with realtime sync</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="feat-onlineExcel">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Toolbar / Action buttons -->
+        <div class="action-bar span-2">
+            <button class="btn btn-nav" onclick="navigateToDashboard()">🏠 Go To Dashboard</button>
+            <button class="btn btn-reset" onclick="resetToCodeDefaults()">Reset Defaults</button>
+            <button class="btn btn-s" onclick="saveToLocalStorage()">Save for Preview</button>
+            <button class="btn btn-p" onclick="downloadConfigFile()">📥 Download config file</button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast"></div>
+
+    <script>
+        // Check session storage on load to avoid repeated password prompts
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('setupAuthorized') === 'true') {
+                showWorkspace();
+            } else {
+                document.getElementById('vault-key').focus();
+            }
+        });
+
+        // Verification key
+        function verifyKey() {
+            const keyInput = document.getElementById('vault-key').value;
+            const correctKey = (typeof appConfig !== 'undefined' && appConfig.setupAccessKey) 
+                ? appConfig.setupAccessKey 
+                : "admin123";
+
+            if (keyInput === correctKey) {
+                sessionStorage.setItem('setupAuthorized', 'true');
+                showToast("Vault Unlocked Successfully", "ok");
+                showWorkspace();
+            } else {
+                showToast("Invalid Access Key", "err");
+            }
+        }
+
+        // Display dashboard
+        function showWorkspace() {
+            document.getElementById('vault-lock').style.display = 'none';
+            document.getElementById('config-workspace').style.display = 'block';
+            loadActiveConfigToFields();
+        }
+
+        // Fill fields with current active appConfig
+        function loadActiveConfigToFields() {
+            if (typeof appConfig === 'undefined') return;
+
+            document.getElementById('cfg-app-name').value = appConfig.appName || '';
+            document.getElementById('cfg-setup-key').value = appConfig.setupAccessKey || '';
+            document.getElementById('cfg-sheets-url').value = appConfig.googleSheetsUrl || '';
+
+            const fb = appConfig.firebaseConfig || {};
+            document.getElementById('fb-api-key').value = fb.apiKey || '';
+            document.getElementById('fb-auth-domain').value = fb.authDomain || '';
+            document.getElementById('fb-db-url').value = fb.databaseURL || '';
+            document.getElementById('fb-project-id').value = fb.projectId || '';
+            document.getElementById('fb-storage-bucket').value = fb.storageBucket || '';
+            document.getElementById('fb-messaging-id').value = fb.messagingSenderId || '';
+            document.getElementById('fb-app-id').value = fb.appId || '';
+            document.getElementById('fb-measurement-id').value = fb.measurementId || '';
+
+            const ft = appConfig.features || {};
+            document.getElementById('feat-labels').checked = ft.labels !== false;
+            document.getElementById('feat-scanner').checked = ft.scanner !== false;
+            document.getElementById('feat-dispatched').checked = ft.dispatched !== false;
+            document.getElementById('feat-uploads').checked = ft.uploads !== false;
+            document.getElementById('feat-search').checked = ft.search !== false;
+            document.getElementById('feat-billing').checked = ft.billing !== false;
+            document.getElementById('feat-gstBilling').checked = ft.gstBilling !== false;
+            document.getElementById('feat-customers').checked = ft.customers !== false;
+            document.getElementById('feat-onlineExcel').checked = ft.onlineExcel !== false;
+        }
+
+        // Retrieve current UI state as a config object
+        function getFieldsAsConfigObject() {
+            return {
+                appName: document.getElementById('cfg-app-name').value.trim(),
+                setupAccessKey: document.getElementById('cfg-setup-key').value.trim() || 'admin123',
+                googleSheetsUrl: document.getElementById('cfg-sheets-url').value.trim(),
+                firebaseConfig: {
+                    apiKey: document.getElementById('fb-api-key').value.trim(),
+                    authDomain: document.getElementById('fb-auth-domain').value.trim(),
+                    databaseURL: document.getElementById('fb-db-url').value.trim(),
+                    projectId: document.getElementById('fb-project-id').value.trim(),
+                    storageBucket: document.getElementById('fb-storage-bucket').value.trim(),
+                    messagingSenderId: document.getElementById('fb-messaging-id').value.trim(),
+                    appId: document.getElementById('fb-app-id').value.trim(),
+                    measurementId: document.getElementById('fb-measurement-id').value.trim()
+                },
+                features: {
+                    labels: document.getElementById('feat-labels').checked,
+                    scanner: document.getElementById('feat-scanner').checked,
+                    dispatched: document.getElementById('feat-dispatched').checked,
+                    uploads: document.getElementById('feat-uploads').checked,
+                    search: document.getElementById('feat-search').checked,
+                    billing: document.getElementById('feat-billing').checked,
+                    gstBilling: document.getElementById('feat-gstBilling').checked,
+                    customers: document.getElementById('feat-customers').checked,
+                    onlineExcel: document.getElementById('feat-onlineExcel').checked
+                }
+            };
+        }
+
+        // Save config in localStorage for live preview
+        function saveToLocalStorage() {
+            const config = getFieldsAsConfigObject();
+            localStorage.setItem('appConfig', JSON.stringify(config));
+            showToast("Saved to Local Preview! Navigate back to test features.", "ok");
+            
+            // Reload configuration variables in script context
+            if (typeof appConfig !== 'undefined') {
+                appConfig = config;
+            }
+        }
+
+        // Download the built firebase-config.js file
+        function downloadConfigFile() {
+            const config = getFieldsAsConfigObject();
+            
+            const fileContent = `// firebase-config.js
+// Central initialization configuration for Firebase Auth, Realtime Database, and Storage
+
+// 1. Central Configuration (baked-in defaults, white-labeled for customization)
+let appConfig = {
+    appName: ${JSON.stringify(config.appName)},
+    setupAccessKey: ${JSON.stringify(config.setupAccessKey)},
+    googleSheetsUrl: ${JSON.stringify(config.googleSheetsUrl)},
+    firebaseConfig: {
+        apiKey: ${JSON.stringify(config.firebaseConfig.apiKey)},
+        authDomain: ${JSON.stringify(config.firebaseConfig.authDomain)},
+        databaseURL: ${JSON.stringify(config.firebaseConfig.databaseURL)},
+        projectId: ${JSON.stringify(config.firebaseConfig.projectId)},
+        storageBucket: ${JSON.stringify(config.firebaseConfig.storageBucket)},
+        messagingSenderId: ${JSON.stringify(config.firebaseConfig.messagingSenderId)},
+        appId: ${JSON.stringify(config.firebaseConfig.appId)},
+        measurementId: ${JSON.stringify(config.firebaseConfig.measurementId)}
+    },
+    features: {
+        labels: ${config.features.labels},
+        scanner: ${config.features.scanner},
+        dispatched: ${config.features.dispatched},
+        uploads: ${config.features.uploads},
+        search: ${config.features.search},
+        billing: ${config.features.billing},
+        gstBilling: ${config.features.gstBilling},
+        customers: ${config.features.customers},
+        onlineExcel: ${config.features.onlineExcel}
+    }
+};
+
+// Load configuration override from localStorage (for previewing configuration changes instantly)
+try {
+    const localConfigStr = localStorage.getItem('appConfig');
+    if (localConfigStr) {
+        const localConfig = JSON.parse(localConfigStr);
+        if (localConfig && typeof localConfig === 'object') {
+            appConfig = {
+                ...appConfig,
+                ...localConfig,
+                firebaseConfig: { ...appConfig.firebaseConfig, ...localConfig.firebaseConfig },
+                features: { ...appConfig.features, ...localConfig.features }
+            };
+        }
+    }
+} catch (e) {
+    console.error("Error parsing local configuration override", e);
+}
+
+// 2. Initialize Firebase using the active configuration
+let firebaseConfig = appConfig.firebaseConfig;
+let firebaseInitialized = false;
+
+if (firebaseConfig.apiKey) {
+    try {
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        firebaseInitialized = true;
+    } catch (e) {
+        console.error("Firebase Initialization Failed", e);
+    }
+}
+
+// Global handles
+const firebaseAuth = firebaseInitialized ? firebase.auth() : null;
+const firebaseDb = firebaseInitialized ? firebase.database() : null;
+const firebaseStorage = firebaseInitialized ? firebase.storage() : null;
+
+// 3. Helper Functions
+function getLoginUrl() {
+    const isSubdir = window.location.pathname.includes('/prints/');
+    return isSubdir ? '../login.html' : 'login.html';
+}
+
+function getMainUrl() {
+    const isSubdir = window.location.pathname.includes('/prints/');
+    return isSubdir ? '../index.html' : 'index.html';
+}
+
+// Enforces user session, redirects if not authenticated
+function enforceAuth() {
+    if (!firebaseInitialized) {
+        console.warn("Firebase not configured. Redirecting to login for setup.");
+        window.location.href = getLoginUrl();
+        return;
+    }
+    
+    firebaseAuth.onAuthStateChanged((user) => {
+        if (!user) {
+            sessionStorage.setItem('redirectAfterLogin', window.location.href);
+            window.location.href = getLoginUrl();
+        } else {
+            // User is authenticated, remove the style tag hiding the body (if present)
+            const guard = document.getElementById('auth-guard-style');
+            if (guard) {
+                guard.remove();
+            } else {
+                // If script ran before body, remove style on DOMContentLoaded
+                document.addEventListener("DOMContentLoaded", () => {
+                    const g = document.getElementById('auth-guard-style');
+                    if (g) g.remove();
+                });
+            }
+        }
+    });
+}
+
+// Global sign out helper
+async function handleLogout(e) {
+    if (e) e.preventDefault();
+    if (firebaseInitialized && firebaseAuth) {
+        try {
+            await firebaseAuth.signOut();
+        } catch (err) {
+            console.error("Sign out failed", err);
+        }
+    }
+    window.location.href = getMainUrl();
+}
+
+// 4. Route Guarding (Immediately redirects if page corresponds to a disabled feature)
+(function() {
+    const path = window.location.pathname;
+    const isSubdir = path.includes('/prints/');
+    const filename = path.split('/').pop() || 'index.html';
+
+    // Skip guards for public/config landing pages
+    if (filename === 'login.html' || filename === 'setup.html' || (filename === 'index.html' && !isSubdir)) {
+        return;
+    }
+
+    // Map filename to feature key
+    let currentFeature = null;
+    if (isSubdir) {
+        if (filename === 'index.html') currentFeature = 'labels';
+        else if (filename === 'scanner.html') currentFeature = 'scanner';
+        else if (filename === 'dispatched.html') currentFeature = 'dispatched';
+    } else {
+        if (filename === 'uploads.html') currentFeature = 'uploads';
+        else if (filename === 'search.html') currentFeature = 'search';
+        else if (filename === 'billing.html') currentFeature = 'billing';
+        else if (filename === 'gst-billing.html') currentFeature = 'gstBilling';
+        else if (filename === 'customers.html') currentFeature = 'customers';
+        else if (filename === 'online-excel.html') currentFeature = 'onlineExcel';
+    }
+
+    // If current feature is disabled, redirect to first enabled feature
+    if (currentFeature && appConfig.features && appConfig.features[currentFeature] === false) {
+        const featurePriority = [
+            'labels',
+            'scanner',
+            'dispatched',
+            'uploads',
+            'search',
+            'billing',
+            'gstBilling',
+            'customers',
+            'onlineExcel'
+        ];
+
+        let targetFeature = null;
+        for (const feat of featurePriority) {
+            if (appConfig.features[feat] !== false) {
+                targetFeature = feat;
+                break;
+            }
+        }
+
+        const prefixRoot = isSubdir ? '../' : '';
+        const prefixPrints = isSubdir ? '' : 'prints/';
+        let redirectUrl = prefixRoot + 'login.html';
+
+        if (targetFeature) {
+            switch (targetFeature) {
+                case 'labels': redirectUrl = prefixPrints + 'index.html'; break;
+                case 'scanner': redirectUrl = prefixPrints + 'scanner.html'; break;
+                case 'dispatched': redirectUrl = prefixPrints + 'dispatched.html'; break;
+                case 'uploads': redirectUrl = prefixRoot + 'uploads.html'; break;
+                case 'search': redirectUrl = prefixRoot + 'search.html'; break;
+                case 'billing': redirectUrl = prefixRoot + 'billing.html'; break;
+                case 'gstBilling': redirectUrl = prefixRoot + 'gst-billing.html'; break;
+                case 'customers': redirectUrl = prefixRoot + 'customers.html'; break;
+                case 'onlineExcel': redirectUrl = prefixRoot + 'online-excel.html'; break;
+            }
+        }
+
+        console.warn(\`Feature '\${currentFeature}' is disabled. Redirecting user to: \${redirectUrl}\`);
+        window.location.href = redirectUrl;
+    }
+})();
+
+// 5. Dynamic Navigation Rendering (Runs after DOM loaded to update navigation elements)
+document.addEventListener("DOMContentLoaded", () => {
+    // Find either <nav> element or element with class nav-links
+    const navContainer = document.querySelector('nav') || document.querySelector('.nav-links');
+    if (!navContainer) return;
+
+    const path = window.location.pathname;
+    const isSubdir = path.includes('/prints/');
+    const filename = path.split('/').pop() || 'index.html';
+
+    const prefixRoot = isSubdir ? '../' : '';
+    const prefixPrints = isSubdir ? '' : 'prints/';
+
+    // All possible nav links and their targets
+    const navItems = [
+        { key: 'labels', name: '📄 Labels', url: prefixPrints + 'index.html' },
+        { key: 'scanner', name: '🔍 Scanner', url: prefixPrints + 'scanner.html' },
+        { key: 'dispatched', name: '📋 Dispatched', url: prefixPrints + 'dispatched.html' },
+        { key: 'uploads', name: '📸 Upload Tracking', url: prefixRoot + 'uploads.html' },
+        { key: 'search', name: '🔎 Search Photos', url: prefixRoot + 'search.html' },
+        { key: 'billing', name: '🧾 Billing', url: prefixRoot + 'billing.html' },
+        { key: 'gstBilling', name: '🧾 GST Billing', url: prefixRoot + 'gst-billing.html' },
+        { key: 'customers', name: '👤 Customers', url: prefixRoot + 'customers.html' },
+        { key: 'onlineExcel', name: '📊 Online Excel', url: prefixRoot + 'online-excel.html' }
+    ];
+
+    // Determine currently active navigation key
+    let activeKey = null;
+    if (isSubdir) {
+        if (filename === 'index.html') activeKey = 'labels';
+        else if (filename === 'scanner.html') activeKey = 'scanner';
+        else if (filename === 'dispatched.html') activeKey = 'dispatched';
+    } else {
+        if (filename === 'uploads.html') activeKey = 'uploads';
+        else if (filename === 'search.html') activeKey = 'search';
+        else if (filename === 'billing.html') activeKey = 'billing';
+        else if (filename === 'gst-billing.html') activeKey = 'gstBilling';
+        else if (filename === 'customers.html') activeKey = 'customers';
+        else if (filename === 'online-excel.html') activeKey = 'onlineExcel';
+    }
+
+    // Filter list to keep only enabled items
+    const enabledItems = navItems.filter(item => appConfig.features[item.key] !== false);
+
+    // Build the inside HTML
+    let navHtml = enabledItems.map(item => {
+        const activeClass = item.key === activeKey ? ' class="on"' : '';
+        return \`    <a href="\${item.url}"\${activeClass}>\${item.name}</a>\`;
+    }).join('\\n');
+
+    // Append logout button
+    navHtml += \`\\n    <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>\`;
+
+    // Overwrite contents of the element
+    navContainer.innerHTML = navHtml;
+});
+`;
+
+            const blob = new Blob([fileContent], { type: "application/javascript" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "firebase-config.js";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Downloaded firebase-config.js! Replace the root file.", "ok");
+        }
+
+        // Reset to original hardcoded code settings
+        function resetToCodeDefaults() {
+            if (confirm("Reset configuration to default code values? Local storage previews will be cleared.")) {
+                localStorage.removeItem('appConfig');
+                showToast("Cleared preview config. Reloading page...", "info");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        }
+
+        // Navigate to the first available page
+        function navigateToDashboard() {
+            const correctKey = (typeof appConfig !== 'undefined' && appConfig.setupAccessKey) 
+                ? appConfig.setupAccessKey 
+                : "admin123";
+            const target = (typeof appConfig !== 'undefined' && appConfig.features && appConfig.features.uploads !== false)
+                ? 'uploads.html' 
+                : 'login.html';
+            window.location.href = target;
+        }
+
+        // Toast notifications helper
+        function showToast(msg, type) {
+            const toast = document.getElementById("toast");
+            toast.textContent = msg;
+            toast.className = `show ${type}`;
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,3510 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Billing & Ledger</title>
+    <style id="auth-guard-style">body { display: none !important; }</style>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>enforceAuth();</script>
+
+    <!-- Client-side libraries for Excel & PDF & QR Code -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(15, 23, 42, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 45%),
+                radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.15), transparent 45%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Navigation styling matching application */
+        nav {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #93c5fd;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 9px 20px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 50px;
+            background: rgba(59, 130, 246, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.25s;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        nav a:hover,
+        nav a.on {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.7);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+            color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 1400px;
+            margin-bottom: 25px;
+        }
+
+        .analytics-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .analytics-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .analytics-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .analytics-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .analytics-card.accent-blue { border-left: 4px solid var(--primary); }
+        .analytics-card.accent-green { border-left: 4px solid var(--success); }
+        .analytics-card.accent-warning { border-left: 4px solid var(--warning); }
+        .analytics-card.accent-purple { border-left: 4px solid #c084fc; }
+
+        /* Workspace Layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .card-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Forms styling */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-group label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Suggestions dropdown */
+        .suggestions-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            z-index: 100;
+            max-height: 150px;
+            overflow-y: auto;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            margin-top: 2px;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.88rem;
+        }
+
+        .suggestion-item:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .suggestion-item strong {
+            display: block;
+            color: #f1f5f9;
+        }
+
+        .suggestion-item span {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* Invoice line items table */
+        .items-table-container {
+            margin: 20px 0;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.3);
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 500px;
+        }
+
+        .items-table th {
+            background: rgba(30, 41, 59, 0.5);
+            color: var(--text-muted);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 0.78rem;
+        }
+
+        .items-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .items-table input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            padding: 4px;
+            font-size: 0.9rem;
+        }
+
+        .items-table input[type="date"] {
+            color-scheme: dark;
+        }
+
+        .items-table input:focus {
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+
+        .items-table select {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            padding: 4px;
+        }
+
+        .btn-remove-row {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-remove-row:hover {
+            color: #f87171;
+        }
+
+        .table-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Invoice Summary details styling */
+        .summary-calculations {
+            margin-top: 20px;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .summary-line:last-child {
+            margin-bottom: 0;
+            border-top: 1px dashed var(--border);
+            padding-top: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .summary-line input {
+            width: 100px;
+            padding: 4px 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: white;
+            text-align: right;
+            outline: none;
+        }
+
+        /* Invoice Listing Filters */
+        .filters-panel {
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .filters-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-item label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .filter-item input,
+        .filter-item select {
+            padding: 8px 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        /* Product Autocomplete Dropdown styling */
+        .product-autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .product-suggestions-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            z-index: 1000;
+            max-height: 180px;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+        }
+
+        .product-suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .product-suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .product-suggestion-item:hover {
+            background: rgba(59, 130, 246, 0.25);
+            color: white;
+        }
+
+        .product-suggestion-item span.rate {
+            color: #60a5fa;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        /* Data list styling */
+        .data-table-container {
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .data-table th {
+            padding: 12px 15px;
+            color: var(--text-muted);
+            font-weight: 600;
+            background: rgba(15,23,42,0.4);
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 0.78rem;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Badge Styling */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .badge.paid { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .badge.unpaid { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge.partial { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge.cancelled { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+
+        /* Common Button classes */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.25s;
+            white-space: nowrap;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-p {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-p:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-s {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            border-color: var(--border);
+        }
+
+        .btn-s:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            background: var(--success-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-hover);
+        }
+
+        .btn-icon {
+            padding: 6px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .actions-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Modal windows */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.3rem;
+            color: white;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Ledger stats grid */
+        .ledger-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .ledger-stat-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ledger-stat-card label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .ledger-stat-card span {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        /* Toast feedback */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            color: white;
+            z-index: 10000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #toast.success { background: #10b981; }
+        #toast.error { background: #ef4444; }
+        #toast.info { background: #3b82f6; }
+
+        /* Loader */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Printing optimizations */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea, #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Nav -->
+    <nav>
+        <a href="prints/index.html">📄 Labels</a>
+        <a href="prints/scanner.html">🔍 Scanner</a>
+        <a href="prints/dispatched.html">📋 Dispatched</a>
+        <a href="uploads.html">📸 Upload Tracking</a>
+        <a href="search.html">🔎 Search Photos</a>
+        <a href="billing.html" class="on">🧾 Billing</a>
+        <a href="gst-billing.html">🧾 GST Billing</a>
+        <a href="customers.html">👤 Customers</a>
+        <a href="online-excel.html">📊 Online Excel</a>
+        <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>
+    </nav>
+
+    <!-- Header Section -->
+    <div class="header">
+        <h1>🧾 Billing & Ledger Portal</h1>
+        <p>Manage unlimited customer bills, check payment ledgers, print address labels & export monthly spreadsheets.</p>
+    </div>
+
+    <!-- Real-time Analytics Dashboard -->
+    <div class="analytics-grid">
+        <div class="analytics-card accent-blue">
+            <span class="analytics-title">💰 Total Sales (All Time)</span>
+            <span class="analytics-value" id="stat-total-sales">₹0.00</span>
+        </div>
+        <div class="analytics-card accent-purple">
+            <span class="analytics-title">📅 Current Month Sales</span>
+            <span class="analytics-value" id="stat-monthly-sales">₹0.00</span>
+        </div>
+        <div class="analytics-card accent-warning">
+            <span class="analytics-title">⏳ Total Pending Payments</span>
+            <span class="analytics-value" id="stat-pending-payments">₹0.00</span>
+        </div>
+        <div class="analytics-card accent-green">
+            <span class="analytics-title">✅ Fully Paid Invoices</span>
+            <span class="analytics-value" id="stat-paid-count">0</span>
+        </div>
+        <div class="analytics-card accent-blue">
+            <span class="analytics-title">👥 Total Customers</span>
+            <span class="analytics-value" id="stat-customer-count">0</span>
+        </div>
+    </div>
+
+    <!-- Main Working Container -->
+    <div class="dashboard-container">
+        <!-- Invoice Creator / Editor Form -->
+        <div class="glass-card">
+            <div class="card-header">
+                <h2 id="invoice-editor-title">🧾 Create New Invoice</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-s btn-sm" onclick="showAddCustomerModal()">👥 Add Customer</button>
+                    <button class="btn btn-s btn-sm" onclick="showSettingsModal()">⚙️ Settings</button>
+                    <button class="btn btn-danger btn-sm" onclick="clearBillScreen()">🧹 Clear Screen</button>
+                </div>
+            </div>
+
+            <!-- Customer Details Block -->
+            <div style="border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.02);">
+                <div style="font-weight: 600; font-size: 0.85rem; color: var(--primary); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">👤 Customer Information</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customerPhone">Phone Number</label>
+                        <input type="text" id="customerPhone" placeholder="Enter 10-digit number" onkeyup="handlePhoneInput(this)" autocomplete="off">
+                        <div id="phone-suggestions" class="suggestions-box"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerName">Full Name</label>
+                        <input type="text" id="customerName" placeholder="Enter customer name">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customerGst">Customer GSTIN (Optional)</label>
+                        <input type="text" id="customerGst" placeholder="Enter GST No (optional)" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label>Actions</label>
+                        <div style="display:flex; gap:8px; height: 100%; flex-wrap: wrap;">
+                            <button class="btn btn-p btn-sm" style="flex:1; min-width: 100px;" onclick="newBillForExistingCustomer()">➕ New Bill</button>
+                            <button class="btn btn-s btn-sm" style="flex:1; min-width: 100px;" onclick="printShippingLabelDirect()">🖨️ Print Label</button>
+                            <button class="btn btn-success btn-sm" style="flex:1; min-width: 100px;" onclick="viewSelectedCustomerExcel()">📊 View Excel</button>
+                            <button class="btn btn-danger btn-sm" style="flex:1; min-width: 100px; background: var(--danger);" onclick="deleteActiveCustomerAccount()">🗑️ Delete Account</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="customerAddress">Shipping Address</label>
+                    <textarea id="customerAddress" rows="2" placeholder="Street, City, Pincode, State"></textarea>
+                </div>
+            </div>
+
+            <!-- Invoice Details Block -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="invoiceNo">Invoice Number</label>
+                    <div style="display:flex;">
+                        <input type="text" id="invoiceNo" placeholder="Auto Generation" style="border-radius: 10px 0 0 10px; width: 70%;" readonly>
+                        <button class="btn btn-s btn-sm" style="border-radius: 0 10px 10px 0; border-left: none;" onclick="unlockInvoiceNumber()">✏️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="invoiceDate">Date & Time</label>
+                    <input type="datetime-local" id="invoiceDate">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom: 10px;">
+                <div class="form-group">
+                    <label for="gstType">Billing Type</label>
+                    <select id="gstType" onchange="toggleGstSupport()">
+                        <option value="non-gst">Non-GST (No taxes calculated)</option>
+                        <option value="gst">GST Invoice</option>
+                    </select>
+                </div>
+                <div class="form-group" id="gst-percent-group" style="display: none;">
+                    <label for="gstPercent">GST Rate (%)</label>
+                    <select id="gstPercent" onchange="calculateGrandTotal()">
+                        <option value="0">0% GST</option>
+                        <option value="5">5% GST</option>
+                        <option value="12">12% GST</option>
+                        <option value="18" selected>18% GST</option>
+                        <option value="28">28% GST</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Line Items Editor Table -->
+            <div style="font-weight: 600; font-size: 0.85rem; color: var(--primary); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">📦 Products / Service Items</div>
+            <div class="items-table-container">
+                <table class="items-table" id="items-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">Date</th>
+                            <th style="width: 35%;">Product Details</th>
+                            <th style="width: 12%; text-align: right;">Qty</th>
+                            <th style="width: 15%; text-align: right;">Rate (₹)</th>
+                            <th style="width: 13%; text-align: right;">Total (₹)</th>
+                            <th style="width: 5%; text-align: center;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="line-items-body">
+                        <!-- Line items populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-actions">
+                <button class="btn btn-s btn-sm" onclick="addInvoiceItemRow()">➕ Add Product Line</button>
+            </div>
+
+            <!-- Financial Calculations summary -->
+            <div class="summary-calculations">
+                <div class="summary-line">
+                    <span>Subtotal:</span>
+                    <span>₹<span id="label-subtotal">0.00</span></span>
+                </div>
+                <div class="summary-line" id="gst-amount-row" style="display: none;">
+                    <span>Calculated GST:</span>
+                    <span>₹<span id="label-gst-amount">0.00</span></span>
+                </div>
+                <div class="summary-line">
+                    <span>Extra Shipping / Handling Charges:</span>
+                    <input type="number" id="extraCharges" value="0" min="0" oninput="calculateGrandTotal()">
+                </div>
+                <div class="summary-line">
+                    <span>Adjusted Discount (₹):</span>
+                    <input type="number" id="discount" value="0" min="0" oninput="calculateGrandTotal()">
+                </div>
+                <div class="summary-line">
+                    <span>Grand Total:</span>
+                    <span>₹<span id="label-grand-total">0.00</span></span>
+                </div>
+                <div class="summary-line">
+                    <span>Amount Paid (₹):</span>
+                    <input type="number" id="amountPaid" value="0" min="0" oninput="handleAmountPaidInput()">
+                </div>
+                <!-- Dynamic Payment Deposits List -->
+                <div id="multiple-payments-section" style="margin: 8px 0 12px 0; border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.01);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted);">Payment Deposits</span>
+                        <button type="button" onclick="addPaymentDepositRow()" style="padding: 2px 8px; font-size: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:600;">+ Add Deposit</button>
+                    </div>
+                    <div id="payment-deposits-list">
+                        <!-- Deposit rows will go here dynamically -->
+                    </div>
+                </div>
+                <div class="summary-line">
+                    <span>Remaining Balance Pending:</span>
+                    <span>₹<span id="label-amount-pending">0.00</span></span>
+                </div>
+                <div class="summary-line">
+                    <span>Payment Status:</span>
+                    <select id="paymentStatus" onchange="handlePaymentStatusDropdownChange()" style="background:#1e293b; color:white; border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-weight:600;">
+                        <option value="unpaid">❌ Unpaid</option>
+                        <option value="partial">⏳ Partial Paid</option>
+                        <option value="paid">✅ Paid</option>
+                        <option value="cancelled">🚫 Cancelled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="invoiceNotes">Private Notes / Remarks</label>
+                <textarea id="invoiceNotes" rows="1" placeholder="Internal billing comments (will not show on print)"></textarea>
+            </div>
+
+            <button class="btn btn-p" style="width: 100%; margin-top: 10px; font-size:1.05rem; padding: 12px;" onclick="saveInvoiceToDb()">💾 Save Bill & Update Ledger</button>
+        </div>
+
+        <!-- Invoices List & Customer Ledger database -->
+        <div class="glass-card">
+            <div class="card-header">
+                <h2>📋 Invoices Database</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-success btn-sm" onclick="exportFilteredBillsExcel()">🟢 Export Filtered Excel</button>
+                    <button class="btn btn-s btn-sm" onclick="showUtilityModal()">📂 Export / Tools</button>
+                </div>
+            </div>
+
+            <!-- Smart Filter controls -->
+            <div class="filters-panel">
+                <div class="filters-row" style="margin-bottom: 10px;">
+                    <div class="filter-item" style="flex: 2;">
+                        <label for="filterSearch">🔍 Search Invoices</label>
+                        <input type="text" id="filterSearch" placeholder="Search customer, phone, or invoice..." onkeyup="filterAndLoadBillsTable()">
+                    </div>
+                </div>
+                <div class="filters-row">
+                    <div class="filter-item">
+                        <label for="filterDateRange">📅 Date Filter</label>
+                        <select id="filterDateRange" onchange="handleDateFilterChange()">
+                            <option value="all">All Invoices</option>
+                            <option value="today">Today</option>
+                            <option value="month">Current Month</option>
+                            <option value="last-month">Last Month</option>
+                            <option value="financial-year">Financial Year</option>
+                            <option value="custom">Custom Date Range</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterStatus">🏷️ Status</label>
+                        <select id="filterStatus" onchange="filterAndLoadBillsTable()">
+                            <option value="all">All Statuses</option>
+                            <option value="paid">Paid</option>
+                            <option value="unpaid">Unpaid</option>
+                            <option value="partial">Partial Paid</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filters-row" id="custom-date-inputs" style="display: none; margin-top: 10px;">
+                    <div class="filter-item">
+                        <label for="startDate">Start Date</label>
+                        <input type="date" id="startDate" onchange="filterAndLoadBillsTable()">
+                    </div>
+                    <div class="filter-item">
+                        <label for="endDate">End Date</label>
+                        <input type="date" id="endDate" onchange="filterAndLoadBillsTable()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoices table -->
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Inv. Code</th>
+                            <th>Date</th>
+                            <th>Customer details</th>
+                            <th>Grand Total</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bills-table-body">
+                        <!-- Content loaded dynamically from Firebase -->
+                    </tbody>
+                </table>
+                <div id="table-loading-spinner" style="text-align: center; padding: 30px; display: none;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 8px; color: var(--text-muted);">Fetching transactions...</p>
+                </div>
+                <div id="table-empty-state" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    📭 No invoices match the active filters.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Ledger Detail View Modal -->
+    <div class="modal" id="customerLedgerModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>👥 Customer Ledger & Billing History</h3>
+                <button class="modal-close" onclick="closeModal('customerLedgerModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="ledger-stats">
+                    <div class="ledger-stat-card">
+                        <label>Customer Name</label>
+                        <span id="ledger-customer-name">---</span>
+                    </div>
+                    <div class="ledger-stat-card">
+                        <label>Phone Number</label>
+                        <span id="ledger-customer-phone">---</span>
+                    </div>
+                    <div class="ledger-stat-card">
+                        <label>Saved GSTIN</label>
+                        <span id="ledger-customer-gst">---</span>
+                    </div>
+                    <div class="ledger-stat-card">
+                        <label>Total Business Done</label>
+                        <span id="ledger-customer-total" style="color:var(--success)">₹0.00</span>
+                    </div>
+                    <div class="ledger-stat-card">
+                        <label>Outstanding Balance</label>
+                        <span id="ledger-customer-pending" style="color:var(--danger)">₹0.00</span>
+                    </div>
+                </div>
+
+                <!-- Ledger Dynamic Filter Panel -->
+                <div class="filters-panel" style="margin-bottom: 15px; padding: 12px; background: rgba(15, 23, 42, 0.4);">
+                    <div class="filters-row">
+                        <div class="filter-item">
+                            <label for="ledgerFilterDateRange">📅 Date Filter</label>
+                            <select id="ledgerFilterDateRange" onchange="handleLedgerDateFilterChange()">
+                                <option value="all">All Invoices</option>
+                                <option value="today">Today</option>
+                                <option value="month">Current Month</option>
+                                <option value="last-month">Last Month</option>
+                                <option value="financial-year">Financial Year</option>
+                                <option value="custom">Custom Date Range</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="ledgerFilterStatus">🏷️ Status</label>
+                            <select id="ledgerFilterStatus" onchange="filterAndLoadLedgerTable()">
+                                <option value="all">All Statuses</option>
+                                <option value="paid">Paid</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="partial">Partial Paid</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filters-row" id="ledger-custom-date-inputs" style="display: none; margin-top: 10px;">
+                        <div class="filter-item">
+                            <label for="ledgerStartDate">Start Date</label>
+                            <input type="date" id="ledgerStartDate" onchange="filterAndLoadLedgerTable()">
+                        </div>
+                        <div class="filter-item">
+                            <label for="ledgerEndDate">End Date</label>
+                            <input type="date" id="ledgerEndDate" onchange="filterAndLoadLedgerTable()">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 12px; color: var(--primary);">📝 Transaction Logs</div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Invoice No</th>
+                                <th>Date</th>
+                                <th>Billing Type</th>
+                                <th>Grand Total</th>
+                                <th>Amt Paid</th>
+                                <th>Amt Pending</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-rows-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="ledgerDeleteBtn" onclick="deleteCustomerAccount()" style="margin-right: auto; background: var(--danger);">🗑️ Delete Customer</button>
+                <button class="btn btn-success" onclick="viewLedgerCustomerInExcel()">📊 View in Excel</button>
+                <button class="btn btn-success" onclick="exportCustomerLedgerExcel()">📥 Export Ledger Excel</button>
+                <button class="btn btn-s" onclick="closeModal('customerLedgerModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Utilities Modal -->
+    <div class="modal" id="utilitiesModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📂 Database Utilities & Spreadsheet Export</h3>
+                <button class="modal-close" onclick="closeModal('utilitiesModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color:#60a5fa;">📊 Excel Export Center</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <button class="btn btn-s btn-sm" onclick="exportFullDatabaseExcel()">🗄️ Full Database Export</button>
+                        <button class="btn btn-s btn-sm" onclick="triggerMonthlyExcelDownload()">📅 Monthly Report Excel</button>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                        <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">EXPORT DATE RANGE</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="date" id="exportStartDate" class="btn-s" style="padding:6px; color:white; border-radius:6px; flex:1;">
+                            <input type="date" id="exportEndDate" class="btn-s" style="padding:6px; color:white; border-radius:6px; flex:1;">
+                            <button class="btn btn-primary btn-sm" onclick="exportDateRangeExcel()">Export Range</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color:#10b981;">👥 Batch Import Customers</div>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Upload an Excel spreadsheet with columns: <strong>Name</strong>, <strong>Phone</strong>, <strong>Address</strong>, <strong>GSTIN</strong> to registers customer profiles in bulk.</p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="file" id="customerImportFile" accept=".xlsx, .xls" style="display:none;" onchange="handleCustomerExcelImport(event)">
+                        <button class="btn btn-success" style="width:100%" onclick="document.getElementById('customerImportFile').click()">📂 Select Excel Spreadsheet & Import</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 10px; color:#ef4444;">💾 Full Backup & Restore</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <button class="btn btn-s btn-sm" onclick="downloadBackupJson()">📥 Download Backup (JSON)</button>
+                        <button class="btn btn-danger btn-sm" onclick="document.getElementById('jsonRestoreFile').click()">📤 Restore Backup (JSON)</button>
+                        <input type="file" id="jsonRestoreFile" accept=".json" style="display:none;" onchange="handleJsonRestore(event)">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-s" onclick="closeModal('utilitiesModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prefix Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>⚙️ Invoice Prefix & Numbering settings</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="settingsPrefix">Invoice Prefix Code</label>
+                    <input type="text" id="settingsPrefix" value="INV-2026-">
+                </div>
+                <div class="form-group">
+                    <label for="settingsNextNo">Next Invoice Serial Number</label>
+                    <input type="number" id="settingsNextNo" value="1" min="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-p" onclick="saveSettings()">Save Settings</button>
+                <button class="btn btn-s" onclick="closeModal('settingsModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Customer Account Modal -->
+    <div class="modal" id="addCustomerModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>👥 Create Customer Account</h3>
+                <button class="modal-close" onclick="closeModal('addCustomerModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="acName">Customer Name (Required)</label>
+                    <input type="text" id="acName" placeholder="e.g. Acme Corp">
+                </div>
+                <div class="form-group">
+                    <label for="acPhone">Phone Number (Required)</label>
+                    <input type="text" id="acPhone" placeholder="10-digit mobile number">
+                </div>
+                <div class="form-group">
+                    <label for="acAddress">Shipping Address</label>
+                    <textarea id="acAddress" rows="3" placeholder="Street Address, City, Pincode, State"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="acGst">GSTIN (Optional)</label>
+                    <input type="text" id="acGst" placeholder="15-digit GSTIN" style="text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="saveCustomerAccount()">Create Account</button>
+                <button class="btn btn-s" onclick="closeModal('addCustomerModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FeedBack Toast Notifications -->
+    <div id="toast">Ready</div>
+
+    <!-- JS Programming logic -->
+    <script>
+        // DB Handles
+        const db = firebaseDb;
+        
+        // Active editing invoice states
+        let editingBillId = null;
+        let activeItems = [];
+        let allBills = {};
+        let allCustomers = {};
+        let systemSettings = { invoicePrefix: "INV-2026-", nextInvoiceNumber: 1 };
+        let activeFilteredBills = [];
+        let activeFilteredLedgerBills = [];
+        let forceNewBill = false; // When true, skip auto-loading pending bills for existing customers
+        let activePayments = [];
+        let billsLoaded = false;
+        let customersLoaded = false;
+        let queryParamsProcessed = false;
+
+        // Robust sorting helpers
+        const getBillTimestamp = (bill) => {
+            if (!bill) return 0;
+            const t = bill.createdAt ? new Date(bill.createdAt).getTime() : 0;
+            return isNaN(t) ? 0 : t;
+        };
+        const compareBillsDescending = (a, b) => {
+            const timeA = getBillTimestamp(a);
+            const timeB = getBillTimestamp(b);
+            if (timeA !== timeB) return timeB - timeA;
+            const invA = a.invoiceNo || '';
+            const invB = b.invoiceNo || '';
+            return invB.localeCompare(invA);
+        };
+        const compareBillEntriesDescending = (a, b) => {
+            const timeA = getBillTimestamp(a[1]);
+            const timeB = getBillTimestamp(b[1]);
+            if (timeA !== timeB) return timeB - timeA;
+            return b[0].localeCompare(a[0]);
+        };
+
+        window.onload = function () {
+            // Setup default date to local time
+            setDefaultDate();
+            
+            // Add first empty item line row
+            addInvoiceItemRow();
+            
+            // Initialize activePayments with one empty payment
+            const today = new Date().toLocaleDateString('en-CA');
+            activePayments = [{ amount: 0, date: today }];
+            renderPaymentDeposits();
+            
+            // Connect database
+            if (db) {
+                loadSettings();
+                listenToBills();
+                listenToCustomers();
+            } else {
+                showToast("Firebase database failed to initialize", "error");
+            }
+        };
+
+        function setDefaultDate() {
+            const now = new Date();
+            // Format to YYYY-MM-DDThh:mm
+            const offset = now.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+            document.getElementById('invoiceDate').value = localISOTime;
+        }
+
+        // --- Database Settings routines ---
+        function loadSettings() {
+            db.ref('billingSettings').on('value', snap => {
+                if (snap.exists()) {
+                    systemSettings = snap.val();
+                } else {
+                    // Seed initial node
+                    db.ref('billingSettings').set(systemSettings);
+                }
+                updateNextInvoicePlaceholder();
+            });
+        }
+
+        function updateNextInvoicePlaceholder() {
+            if (!editingBillId) {
+                const nextNoFormatted = String(systemSettings.nextInvoiceNumber).padStart(3, '0');
+                document.getElementById('invoiceNo').value = systemSettings.invoicePrefix + nextNoFormatted;
+            }
+        }
+
+        function unlockInvoiceNumber() {
+            document.getElementById('invoiceNo').readOnly = false;
+            document.getElementById('invoiceNo').focus();
+            showToast("Manual invoice code edit enabled.", "info");
+        }
+
+        function saveSettings() {
+            const prefix = document.getElementById('settingsPrefix').value.trim();
+            const nextNo = parseInt(document.getElementById('settingsNextNo').value);
+            
+            if (!prefix || isNaN(nextNo) || nextNo < 1) {
+                showToast("Please provide valid configuration values.", "error");
+                return;
+            }
+            
+            db.ref('billingSettings').update({
+                invoicePrefix: prefix,
+                nextInvoiceNumber: nextNo
+            }).then(() => {
+                showToast("Billing settings updated.", "success");
+                closeModal('settingsModal');
+            }).catch(err => {
+                showToast("Failed to save settings: " + err.message, "error");
+            });
+        }
+
+        // --- Database Listings & Listeners ---
+        function listenToBills() {
+            document.getElementById('table-loading-spinner').style.display = 'block';
+            db.ref('bills').on('value', snap => {
+                document.getElementById('table-loading-spinner').style.display = 'none';
+                if (snap.exists()) {
+                    allBills = snap.val();
+                } else {
+                    allBills = {};
+                }
+                billsLoaded = true;
+                filterAndLoadBillsTable();
+                calculateDashboardAnalytics();
+                processQueryParams();
+            });
+        }
+
+        function listenToCustomers() {
+            db.ref('customers').on('value', snap => {
+                if (snap.exists()) {
+                    allCustomers = snap.val();
+                } else {
+                    allCustomers = {};
+                }
+                customersLoaded = true;
+                calculateDashboardAnalytics();
+                processQueryParams();
+            });
+        }
+
+        function processQueryParams() {
+            if (queryParamsProcessed) return;
+            if (!billsLoaded || !customersLoaded) return;
+            
+            queryParamsProcessed = true;
+            const urlParams = new URLSearchParams(window.location.search);
+            const editBillId = urlParams.get('editbill');
+            const newBillPhone = urlParams.get('newbill');
+            const phoneParam = urlParams.get('phone');
+
+            if (editBillId) {
+                if (allBills && allBills[editBillId]) {
+                    loadBillForEditing(editBillId);
+                } else {
+                    showToast("Requested bill not found", "error");
+                }
+            } else if (newBillPhone) {
+                const cust = allCustomers[newBillPhone];
+                if (cust) {
+                    document.getElementById('customerPhone').value = newBillPhone;
+                    document.getElementById('customerName').value = cust.name;
+                    document.getElementById('customerAddress').value = cust.address || '';
+                    document.getElementById('customerGst').value = cust.gst || '';
+                    
+                    forceNewBill = true; // start fresh new bill
+                    editingBillId = null;
+                    document.getElementById('invoice-editor-title').textContent = "🧾 New Bill — " + cust.name;
+                    updateNextInvoicePlaceholder();
+                    showToast(`New bill started for ${cust.name}. Add items and save.`, "success");
+                } else {
+                    document.getElementById('customerPhone').value = newBillPhone;
+                    forceNewBill = true;
+                    editingBillId = null;
+                    document.getElementById('invoice-editor-title').textContent = "🧾 New Bill";
+                    updateNextInvoicePlaceholder();
+                }
+            } else if (phoneParam) {
+                const cust = allCustomers[phoneParam];
+                if (cust) {
+                    document.getElementById('customerPhone').value = phoneParam;
+                    document.getElementById('customerName').value = cust.name;
+                    document.getElementById('customerAddress').value = cust.address || '';
+                    document.getElementById('customerGst').value = cust.gst || '';
+                    
+                    checkForPendingBill(phoneParam);
+                } else {
+                    document.getElementById('customerPhone').value = phoneParam;
+                }
+            }
+        }
+
+        // --- Dashboard Analytics Calculator ---
+        function calculateDashboardAnalytics() {
+            let totalSales = 0;
+            let monthlySales = 0;
+            let pendingPayments = 0;
+            let paidCount = 0;
+            let customerCount = Object.keys(allCustomers).length;
+
+            const now = new Date();
+            const currentMonth = now.getMonth(); // 0-11
+            const currentYear = now.getFullYear();
+
+            Object.values(allBills).forEach(bill => {
+                if (bill.status === 'cancelled') return;
+
+                const billTotal = parseFloat(bill.grandTotal) || 0;
+                const billPending = parseFloat(bill.amountPending) || 0;
+                
+                totalSales += billTotal;
+                pendingPayments += billPending;
+                
+                if (bill.status === 'paid') {
+                    paidCount++;
+                }
+
+                // Check if created in current month
+                const billDate = new Date(bill.createdAt);
+                if (!isNaN(billDate.getTime())) {
+                    if (billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear) {
+                        monthlySales += billTotal;
+                    }
+                }
+            });
+
+            document.getElementById('stat-total-sales').textContent = '₹' + totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('stat-monthly-sales').textContent = '₹' + monthlySales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('stat-pending-payments').textContent = '₹' + pendingPayments.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('stat-paid-count').textContent = paidCount;
+            document.getElementById('stat-customer-count').textContent = customerCount;
+        }
+
+        // --- Product Line item operations ---
+        function addInvoiceItemRow(name = "", qty = 1, rate = 0, date = "") {
+            const tbody = document.getElementById('line-items-body');
+            const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+            
+            // Default to today if date not provided
+            let itemDateStr = date;
+            if (!itemDateStr) {
+                const invDateInput = document.getElementById('invoiceDate');
+                if (invDateInput && invDateInput.value) {
+                    itemDateStr = invDateInput.value.split('T')[0];
+                } else {
+                    itemDateStr = new Date().toISOString().split('T')[0];
+                }
+            } else {
+                itemDateStr = itemDateStr.split('T')[0];
+            }
+            
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.innerHTML = `
+                <td>
+                    <input type="date" value="${itemDateStr}" class="item-date" required>
+                </td>
+                <td>
+                    <div class="product-autocomplete-container">
+                        <input type="text" placeholder="Enter product name / description" value="${name}" class="item-name" required onfocus="showProductSuggestions(this)" oninput="filterProductSuggestions(this)" autocomplete="off">
+                        <div class="product-suggestions-dropdown"></div>
+                    </div>
+                </td>
+                <td>
+                    <input type="number" value="${qty}" min="1" class="item-qty" style="text-align: right;" oninput="recalcItemTotal('${rowId}')">
+                </td>
+                <td>
+                    <input type="number" value="${rate}" min="0" class="item-rate" style="text-align: right;" oninput="recalcItemTotal('${rowId}')">
+                </td>
+                <td style="text-align: right; font-weight: 600; color: #f1f5f9;">
+                    ₹<span class="item-total-label">${(qty * rate).toFixed(2)}</span>
+                </td>
+                <td style="text-align: center;">
+                    <button class="btn-remove-row" onclick="removeInvoiceItemRow('${rowId}')">✕</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            calculateGrandTotal();
+        }
+
+        function removeInvoiceItemRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+                calculateGrandTotal();
+            }
+            
+            // Keep at least one row empty
+            const rows = document.querySelectorAll('#line-items-body tr');
+            if (rows.length === 0) {
+                addInvoiceItemRow();
+            }
+        }
+
+        function recalcItemTotal(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+                row.querySelector('.item-total-label').textContent = (qty * rate).toFixed(2);
+                calculateGrandTotal();
+            }
+        }
+
+        // --- Product Suggestions Autocomplete Logic ---
+        function getUniqueProductsFromBills() {
+            const products = {};
+            Object.values(allBills).forEach(bill => {
+                if (bill.items && Array.isArray(bill.items)) {
+                    bill.items.forEach(item => {
+                        const name = item.productName ? item.productName.trim() : "";
+                        if (name) {
+                            const time = new Date(bill.createdAt).getTime();
+                            if (!products[name] || products[name].time < time) {
+                                products[name] = {
+                                    name: name,
+                                    rate: item.rate || 0,
+                                    time: time
+                                };
+                            }
+                        }
+                    });
+                }
+            });
+            return Object.values(products).sort((a, b) => b.time - a.time);
+        }
+
+        function showProductSuggestions(inputEl) {
+            const dropdown = inputEl.nextElementSibling;
+            if (!dropdown) return;
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.product-suggestions-dropdown').forEach(d => {
+                if (d !== dropdown) d.style.display = 'none';
+            });
+
+            const uniqueProducts = getUniqueProductsFromBills();
+            if (uniqueProducts.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            renderProductDropdownList(inputEl, dropdown, uniqueProducts);
+        }
+
+        function filterProductSuggestions(inputEl) {
+            const dropdown = inputEl.nextElementSibling;
+            if (!dropdown) return;
+
+            const val = inputEl.value.toLowerCase().trim();
+            const uniqueProducts = getUniqueProductsFromBills();
+            
+            const filtered = uniqueProducts.filter(p => p.name.toLowerCase().includes(val));
+            
+            if (filtered.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            renderProductDropdownList(inputEl, dropdown, filtered);
+        }
+
+        function renderProductDropdownList(inputEl, dropdown, products) {
+            dropdown.innerHTML = '';
+            
+            products.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'product-suggestion-item';
+                div.innerHTML = `<span>📦 ${p.name}</span><span class="rate">₹${p.rate.toFixed(2)}</span>`;
+                div.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectProductSuggestion(inputEl, p.name, p.rate);
+                });
+                dropdown.appendChild(div);
+            });
+            
+            dropdown.style.display = 'block';
+        }
+
+        function selectProductSuggestion(inputEl, productName, productRate) {
+            inputEl.value = productName;
+            
+            const row = inputEl.closest('tr');
+            if (row) {
+                const rateInput = row.querySelector('.item-rate');
+                if (rateInput) {
+                    rateInput.value = productRate;
+                }
+                recalcItemTotal(row.id);
+            }
+            
+            const dropdown = inputEl.nextElementSibling;
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        // Dismiss product suggestions when clicking outside
+        document.addEventListener('click', e => {
+            if (!e.target.classList.contains('item-name')) {
+                document.querySelectorAll('.product-suggestions-dropdown').forEach(dropdown => {
+                    dropdown.style.display = 'none';
+                });
+            }
+        });
+
+        function addPaymentDepositRow() {
+            activePayments.push({ amount: 0, date: new Date().toLocaleDateString('en-CA') });
+            renderPaymentDeposits();
+            updateMainAmountFromDeposits();
+        }
+
+        function renderPaymentDeposits() {
+            const container = document.getElementById('payment-deposits-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const amountPaidInput = document.getElementById('amountPaid');
+            amountPaidInput.readOnly = activePayments.length > 1;
+
+            activePayments.forEach((pm, index) => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.gap = '8px';
+                row.style.alignItems = 'center';
+                row.style.marginBottom = '6px';
+
+                const amtInp = document.createElement('input');
+                amtInp.type = 'number';
+                amtInp.value = pm.amount;
+                amtInp.min = '0';
+                amtInp.step = '0.01';
+                amtInp.style.flex = '1';
+                amtInp.style.padding = '4px 8px';
+                amtInp.style.background = 'var(--input-bg)';
+                amtInp.style.border = '1px solid var(--border)';
+                amtInp.style.borderRadius = '6px';
+                amtInp.style.color = 'var(--text)';
+                amtInp.oninput = (e) => {
+                    activePayments[index].amount = parseFloat(e.target.value) || 0;
+                    updateMainAmountFromDeposits();
+                };
+
+                const dateInp = document.createElement('input');
+                dateInp.type = 'date';
+                dateInp.value = pm.date;
+                dateInp.style.flex = '1.2';
+                dateInp.style.padding = '4px 8px';
+                dateInp.style.background = 'var(--input-bg)';
+                dateInp.style.border = '1px solid var(--border)';
+                dateInp.style.borderRadius = '6px';
+                dateInp.style.color = 'var(--text)';
+                dateInp.onchange = (e) => {
+                    activePayments[index].date = e.target.value;
+                };
+
+                row.appendChild(amtInp);
+                row.appendChild(dateInp);
+
+                if (activePayments.length > 1) {
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.innerHTML = '🗑️';
+                    delBtn.style.background = 'none';
+                    delBtn.style.border = 'none';
+                    delBtn.style.cursor = 'pointer';
+                    delBtn.style.padding = '4px';
+                    delBtn.onclick = () => {
+                        activePayments.splice(index, 1);
+                        renderPaymentDeposits();
+                        updateMainAmountFromDeposits();
+                    };
+                    row.appendChild(delBtn);
+                }
+
+                container.appendChild(row);
+            });
+        }
+
+        function updateMainAmountFromDeposits() {
+            const sum = activePayments.reduce((acc, p) => acc + p.amount, 0);
+            document.getElementById('amountPaid').value = sum.toFixed(2);
+            handleAmountPaidInput();
+        }
+
+        function toggleGstSupport() {
+            const type = document.getElementById('gstType').value;
+            const gstGroup = document.getElementById('gst-percent-group');
+            const gstAmountRow = document.getElementById('gst-amount-row');
+            
+            if (type === 'gst') {
+                gstGroup.style.display = 'flex';
+                gstAmountRow.style.display = 'flex';
+            } else {
+                gstGroup.style.display = 'none';
+                gstAmountRow.style.display = 'none';
+            }
+            calculateGrandTotal();
+        }
+
+        // --- Grand Billing calculation engine ---
+        function calculateGrandTotal() {
+            let subtotal = 0;
+            const rows = document.querySelectorAll('#line-items-body tr');
+            
+            rows.forEach(row => {
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+                subtotal += (qty * rate);
+            });
+
+            document.getElementById('label-subtotal').textContent = subtotal.toFixed(2);
+
+            let gstAmount = 0;
+            const gstType = document.getElementById('gstType').value;
+            if (gstType === 'gst') {
+                const gstPercent = parseFloat(document.getElementById('gstPercent').value) || 0;
+                gstAmount = subtotal * (gstPercent / 100);
+                document.getElementById('label-gst-amount').textContent = gstAmount.toFixed(2);
+            }
+
+            const extraCharges = parseFloat(document.getElementById('extraCharges').value) || 0;
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+
+            const grandTotal = subtotal + gstAmount + extraCharges - discount;
+            const validGrandTotal = grandTotal < 0 ? 0 : grandTotal;
+            
+            document.getElementById('label-grand-total').textContent = validGrandTotal.toFixed(2);
+
+            const amountPaidInput = document.getElementById('amountPaid');
+            // If it's a new bill and paid is untouched, keep it synchronized with Grand Total
+            const paymentStatus = document.getElementById('paymentStatus').value;
+            
+            let paid = parseFloat(amountPaidInput.value) || 0;
+            if (paymentStatus === 'paid') {
+                paid = validGrandTotal;
+                amountPaidInput.value = validGrandTotal.toFixed(2);
+            } else if (paymentStatus === 'unpaid') {
+                paid = 0;
+                amountPaidInput.value = "0";
+            }
+
+            // Sync to activePayments if it has <= 1 elements
+            const today = new Date().toLocaleDateString('en-CA');
+            if (activePayments.length <= 1) {
+                if (activePayments.length === 0) {
+                    activePayments.push({ amount: paid, date: today });
+                } else {
+                    activePayments[0].amount = paid;
+                }
+                renderPaymentDeposits();
+            }
+
+            const pending = validGrandTotal - paid;
+            const validPending = pending < 0 ? 0 : pending;
+            document.getElementById('label-amount-pending').textContent = validPending.toFixed(2);
+        }
+
+        function handleAmountPaidInput() {
+            const grandTotal = parseFloat(document.getElementById('label-grand-total').textContent) || 0;
+            let paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+            
+            if (paid < 0) paid = 0;
+            if (paid > grandTotal) {
+                paid = grandTotal;
+                document.getElementById('amountPaid').value = grandTotal.toFixed(2);
+            }
+
+            const pending = grandTotal - paid;
+            document.getElementById('label-amount-pending').textContent = pending.toFixed(2);
+
+            // Sync to activePayments if it has <= 1 elements
+            const today = new Date().toLocaleDateString('en-CA');
+            if (activePayments.length <= 1) {
+                if (activePayments.length === 0) {
+                    activePayments.push({ amount: paid, date: today });
+                } else {
+                    activePayments[0].amount = paid;
+                }
+                renderPaymentDeposits();
+            }
+
+            // Dynamically set status dropdown
+            const statusDropdown = document.getElementById('paymentStatus');
+            if (paid === 0) {
+                statusDropdown.value = 'unpaid';
+            } else if (paid >= grandTotal) {
+                statusDropdown.value = 'paid';
+            } else {
+                statusDropdown.value = 'partial';
+            }
+        }
+
+        function handlePaymentStatusDropdownChange() {
+            const status = document.getElementById('paymentStatus').value;
+            const grandTotal = parseFloat(document.getElementById('label-grand-total').textContent) || 0;
+            const paidInput = document.getElementById('amountPaid');
+            const today = new Date().toLocaleDateString('en-CA');
+            
+            if (status === 'paid') {
+                paidInput.value = grandTotal.toFixed(2);
+                activePayments = [{ amount: grandTotal, date: today }];
+            } else if (status === 'unpaid') {
+                paidInput.value = "0";
+                activePayments = [{ amount: 0, date: today }];
+            } else if (status === 'cancelled') {
+                paidInput.value = "0";
+                activePayments = [{ amount: 0, date: today }];
+            } else if (status === 'partial') {
+                // If it was not already partial, make it a single payment of the current paid amount (or grand total / 2 as a placeholder if 0)
+                let currentPaid = parseFloat(paidInput.value) || 0;
+                if (currentPaid === 0 || currentPaid === grandTotal) {
+                    currentPaid = grandTotal / 2;
+                    paidInput.value = currentPaid.toFixed(2);
+                }
+                if (activePayments.length <= 1) {
+                    activePayments = [{ amount: currentPaid, date: today }];
+                }
+            }
+            
+            renderPaymentDeposits();
+            calculateGrandTotal();
+        }
+
+        // --- Customer Autocomplete Suggestions ---
+        function handlePhoneInput(input) {
+            const val = input.value.replace(/\D/g, '');
+            input.value = val;
+            
+            const suggestions = document.getElementById('phone-suggestions');
+            suggestions.innerHTML = '';
+            
+            if (val.length === 10) {
+                checkForPendingBill(val);
+            }
+
+            if (val.length < 3) {
+                suggestions.style.display = 'none';
+                return;
+            }
+
+            const matches = Object.entries(allCustomers).filter(([phone, c]) => phone.includes(val) || c.name.toLowerCase().includes(val.toLowerCase()));
+            
+            if (matches.length === 0) {
+                suggestions.style.display = 'none';
+                return;
+            }
+
+            matches.forEach(([phone, c]) => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `<strong>${c.name}</strong><span>📞 ${phone}</span>`;
+                div.onclick = function() {
+                    document.getElementById('customerPhone').value = phone;
+                    document.getElementById('customerName').value = c.name;
+                    document.getElementById('customerAddress').value = c.address || '';
+                    document.getElementById('customerGst').value = c.gst || '';
+                    suggestions.style.display = 'none';
+                    showToast("Customer details auto-filled.", "info");
+                    checkForPendingBill(phone);
+                };
+                suggestions.appendChild(div);
+            });
+            suggestions.style.display = 'block';
+        }
+
+        function checkForPendingBill(phone) {
+            if (!phone || !allBills) return;
+            
+            // If user explicitly clicked "New Bill", do not auto-load any pending bill
+            if (forceNewBill) return;
+
+            const customerBills = Object.entries(allBills).filter(([key, b]) => {
+                return b.customerPhone === phone && b.status !== 'cancelled' && (b.status === 'unpaid' || b.status === 'partial');
+            });
+            if (customerBills.length > 0) {
+                // Sort by date desc using robust comparison helper
+                customerBills.sort(compareBillEntriesDescending);
+                const [billId, bill] = customerBills[0];
+                if (editingBillId !== billId) {
+                    loadBillForEditing(billId);
+                    document.getElementById('invoice-editor-title').innerHTML = `✏️ Edit Invoice ${bill.invoiceNo} <span style="font-size: 0.65em; font-weight: normal; color: #d97706; background: #fef3c7; border: 1px solid #fde68a; padding: 4px 8px; border-radius: 6px; margin-left: 10px; display: inline-block; vertical-align: middle;">Auto-Loaded Pending (Click 'New Bill' to Start Fresh)</span>`;
+                    showToast(`Pending invoice ${bill.invoiceNo} loaded automatically. You can now add/append items to it!`, "success");
+                }
+            } else {
+                if (editingBillId) {
+                    const loadedBill = allBills[editingBillId];
+                    if (loadedBill && loadedBill.customerPhone !== phone) {
+                        clearBillScreen();
+                        const c = allCustomers[phone];
+                        if (c) {
+                            document.getElementById('customerPhone').value = phone;
+                            document.getElementById('customerName').value = c.name;
+                            document.getElementById('customerAddress').value = c.address || '';
+                            document.getElementById('customerGst').value = c.gst || '';
+                        }
+                    }
+                }
+            }
+        }
+
+        // Dismiss autocomplete when clicking outside
+        document.addEventListener('click', e => {
+            if (e.target.id !== 'customerPhone') {
+                document.getElementById('phone-suggestions').style.display = 'none';
+            }
+        });
+
+        // --- Save Invoice / Sync database ---
+        async function saveInvoiceToDb() {
+            const phone = document.getElementById('customerPhone').value.trim();
+            const name = document.getElementById('customerName').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const customerGst = document.getElementById('customerGst').value.trim().toUpperCase();
+            
+            let invoiceNo = document.getElementById('invoiceNo').value.trim();
+            const invoiceDateVal = document.getElementById('invoiceDate').value;
+            const gstType = document.getElementById('gstType').value;
+            const gstPercent = parseFloat(document.getElementById('gstPercent').value) || 0;
+            const extraCharges = parseFloat(document.getElementById('extraCharges').value) || 0;
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+            const paymentStatus = document.getElementById('paymentStatus').value;
+            const notes = document.getElementById('invoiceNotes').value.trim();
+
+            if (!phone || !name) {
+                showToast("Please provide Customer Name and Phone Number.", "error");
+                return;
+            }
+
+            // Extract item lines
+            const rows = document.querySelectorAll('#line-items-body tr');
+            let items = [];
+            let validItems = true;
+            
+            rows.forEach(row => {
+                const pName = row.querySelector('.item-name').value.trim();
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+                const itemDateInput = row.querySelector('.item-date');
+                const itemDate = itemDateInput ? itemDateInput.value : '';
+                
+                if (pName) {
+                    items.push({
+                        productName: pName,
+                        quantity: qty,
+                        rate: rate,
+                        total: qty * rate,
+                        date: itemDate ? new Date(itemDate).toISOString() : new Date(invoiceDateVal).toISOString()
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                showToast("Please add at least one line item with description.", "error");
+                return;
+            }
+
+            // --- Append-to-newest logic (same rule as Quick Bill) ---
+            // If no bill is loaded in the editor and "New Bill" was NOT explicitly clicked,
+            // find the newest pending bill for this customer and append to it.
+            // This ensures: inv-02 receives all entries until inv-03 is created, then inv-03 does, etc.
+            let billCreatedAt = new Date(invoiceDateVal).toISOString();
+            if (!editingBillId && !forceNewBill) {
+                try {
+                    const pendingSnap = await db.ref('bills')
+                        .orderByChild('customerPhone').equalTo(phone).once('value');
+                    if (pendingSnap.exists()) {
+                        const pendingEntries = Object.entries(pendingSnap.val())
+                            .filter(([k, b]) => b.status !== 'cancelled' &&
+                                (b.status === 'unpaid' || b.status === 'partial'))
+                            // Sort descending — newest pending bill first using robust comparison helper
+                            .sort(compareBillEntriesDescending);
+                        if (pendingEntries.length > 0) {
+                            const [targetId, targetBill] = pendingEntries[0];
+                            editingBillId = targetId;
+                            invoiceNo = targetBill.invoiceNo;       // keep original invoice number
+                            billCreatedAt = targetBill.createdAt;   // keep original creation date
+                            // Prepend existing items so chronological order is maintained
+                            const existingItems = Array.isArray(targetBill.items) ? targetBill.items : [];
+                            items = [...existingItems, ...items];
+
+                            // Merge payments
+                            const existingPayments = Array.isArray(targetBill.payments) 
+                                ? targetBill.payments 
+                                : (targetBill.amountPaid ? [{ amount: targetBill.amountPaid, date: targetBill.paymentTimestamp ? targetBill.paymentTimestamp.split('T')[0] : targetBill.createdAt.split('T')[0] }] : []);
+                            const newPayments = activePayments.filter(p => p.amount > 0);
+                            activePayments = [...existingPayments, ...newPayments];
+                            if (activePayments.length === 0) {
+                                activePayments = [{ amount: 0, date: new Date().toLocaleDateString('en-CA') }];
+                            }
+                        }
+                    }
+                } catch (e) { /* lookup failed — fall through and create a new bill */ }
+            }
+
+            const subtotal = items.reduce((acc, row) => acc + row.total, 0);
+            const gstAmount = gstType === 'gst' ? (subtotal * (gstPercent / 100)) : 0;
+            const grandTotal = subtotal + gstAmount + extraCharges - discount;
+
+            // Recalculate amountPaid from activePayments sum
+            const totalAmountPaid = activePayments.reduce((sum, p) => sum + p.amount, 0);
+            // Cap totalAmountPaid to grandTotal
+            const cappedAmountPaid = totalAmountPaid > grandTotal ? grandTotal : totalAmountPaid;
+
+            const amountPending = grandTotal - cappedAmountPaid;
+
+            // Calculate overall paymentTimestamp as the date of the latest deposit
+            let latestPaymentTimestamp = null;
+            let resolvedStatus = paymentStatus;
+            if (paymentStatus !== 'cancelled') {
+                if (cappedAmountPaid === 0) {
+                    resolvedStatus = 'unpaid';
+                } else if (cappedAmountPaid >= grandTotal) {
+                    resolvedStatus = 'paid';
+                } else {
+                    resolvedStatus = 'partial';
+                }
+            }
+
+            if (resolvedStatus === 'paid' || resolvedStatus === 'partial') {
+                if (activePayments && activePayments.length > 0) {
+                    let latestDate = "";
+                    activePayments.forEach(pm => {
+                        if (pm.amount > 0 && pm.date > latestDate) {
+                            latestDate = pm.date;
+                        }
+                    });
+                    if (latestDate) {
+                        latestPaymentTimestamp = new Date(latestDate).toISOString();
+                    } else {
+                        latestPaymentTimestamp = new Date().toISOString();
+                    }
+                } else {
+                    latestPaymentTimestamp = new Date().toISOString();
+                }
+            }
+
+            const billPayload = {
+                invoiceNo: invoiceNo,
+                customerName: name,
+                customerPhone: phone,
+                customerAddress: address,
+                customerGst: customerGst,
+                createdAt: billCreatedAt,
+                updatedAt: new Date().toISOString(),
+                paymentTimestamp: latestPaymentTimestamp,
+                payments: activePayments,
+                items: items,
+                subtotal: subtotal,
+                gstType: gstType,
+                gstPercent: gstPercent,
+                gstAmount: gstAmount,
+                extraCharges: extraCharges,
+                discount: discount,
+                grandTotal: grandTotal,
+                amountPaid: cappedAmountPaid,
+                amountPending: resolvedStatus === 'cancelled' ? 0 : amountPending,
+                status: resolvedStatus,
+                notes: notes
+            };
+
+            try {
+                // If new bill, check if we need auto-generated invoice code
+                if (!editingBillId) {
+                    // Start database updates
+                    const invoiceSnap = await db.ref('billingSettings/nextInvoiceNumber').transaction(currentVal => {
+                        return (currentVal || 1) + 1;
+                    });
+                    
+                    // Save invoice
+                    const newBillRef = db.ref('bills').push();
+                    await newBillRef.set(billPayload);
+                } else {
+                    // Update existing
+                    await db.ref(`bills/${editingBillId}`).set(billPayload);
+                }
+
+                // Update/Merge Customer Directory details
+                await db.ref(`customers/${phone}`).update({
+                    name: name,
+                    phone: phone,
+                    address: address,
+                    gst: customerGst,
+                    lastBillingDate: billPayload.createdAt
+                });
+
+                // Trigger Ledger Recalculation for this customer
+                await syncCustomerLedgerTotals(phone);
+
+                showToast(editingBillId ? "Invoice updated successfully." : "Invoice saved successfully.", "success");
+                
+                // Clear active creator block or reset
+                clearBillScreen();
+            } catch (err) {
+                showToast("Failed to compile invoice: " + err.message, "error");
+            }
+        }
+
+        // --- Recalculates aggregate statistics for a customer ledger ---
+        async function syncCustomerLedgerTotals(phone) {
+            const customerSnap = await db.ref(`customers/${phone}`).once('value');
+            if (!customerSnap.exists()) return; // Do not recreate deleted customer profiles during ledger recalculations
+
+            const billsSnap = await db.ref('bills').orderByChild('customerPhone').equalTo(phone).once('value');
+            
+            let totalBusiness = 0;
+            let remainingBalance = 0;
+            let lastDate = 0;
+
+            if (billsSnap.exists()) {
+                Object.values(billsSnap.val()).forEach(bill => {
+                    if (bill.status !== 'cancelled') {
+                        totalBusiness += parseFloat(bill.grandTotal) || 0;
+                        remainingBalance += parseFloat(bill.amountPending) || 0;
+                    }
+                    const bTime = new Date(bill.createdAt).getTime();
+                    if (!isNaN(bTime) && bTime > lastDate) {
+                        lastDate = bTime;
+                    }
+                });
+            }
+
+            await db.ref(`customers/${phone}`).update({
+                totalBusiness: totalBusiness,
+                remainingBalance: remainingBalance,
+                lastBillingDate: lastDate > 0 ? new Date(lastDate).toISOString() : null
+            });
+        }
+
+        function clearBillScreen() {
+            editingBillId = null;
+            forceNewBill = false; // Reset the new-bill flag
+            document.getElementById('invoice-editor-title').textContent = "🧾 Create New Invoice";
+            
+            document.getElementById('customerPhone').value = "";
+            document.getElementById('customerName').value = "";
+            document.getElementById('customerAddress').value = "";
+            document.getElementById('customerGst').value = "";
+            document.getElementById('extraCharges').value = "0";
+            document.getElementById('discount').value = "0";
+            document.getElementById('amountPaid').value = "0";
+            document.getElementById('invoiceNotes').value = "";
+            document.getElementById('gstType').value = "non-gst";
+            document.getElementById('paymentStatus').value = "unpaid";
+            
+            setDefaultDate();
+            
+            // Clear product body rows
+            document.getElementById('line-items-body').innerHTML = "";
+            addInvoiceItemRow();
+            
+            const today = new Date().toLocaleDateString('en-CA');
+            activePayments = [{ amount: 0, date: today }];
+            renderPaymentDeposits();
+            
+            toggleGstSupport();
+            updateNextInvoicePlaceholder();
+            document.getElementById('invoiceNo').readOnly = true;
+        }
+
+        // --- Create a fresh new bill for an already-loaded/existing customer ---
+        function newBillForExistingCustomer() {
+            const phone = document.getElementById('customerPhone').value.trim();
+            const name = document.getElementById('customerName').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const gst = document.getElementById('customerGst').value.trim();
+
+            if (!phone || !name) {
+                showToast("Please select or enter a customer first.", "error");
+                return;
+            }
+
+            forceNewBill = true; // Prevent auto-loading pending bill when phone is re-validated
+            editingBillId = null;
+            document.getElementById('invoice-editor-title').textContent = "🧾 New Bill — " + name;
+
+            // Reset only invoice-specific fields; keep customer details intact
+            document.getElementById('extraCharges').value = "0";
+            document.getElementById('discount').value = "0";
+            document.getElementById('amountPaid').value = "0";
+            document.getElementById('invoiceNotes').value = "";
+            document.getElementById('gstType').value = "non-gst";
+            document.getElementById('paymentStatus').value = "unpaid";
+
+            setDefaultDate();
+
+            // Clear and reset product line items
+            document.getElementById('line-items-body').innerHTML = "";
+            addInvoiceItemRow();
+
+            const today = new Date().toLocaleDateString('en-CA');
+            activePayments = [{ amount: 0, date: today }];
+            renderPaymentDeposits();
+
+            toggleGstSupport();
+            updateNextInvoicePlaceholder();
+            document.getElementById('invoiceNo').readOnly = true;
+
+            // Restore customer info (in case clearBillScreen or something wiped it)
+            document.getElementById('customerPhone').value = phone;
+            document.getElementById('customerName').value = name;
+            document.getElementById('customerAddress').value = address;
+            document.getElementById('customerGst').value = gst;
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast(`New bill started for ${name}. Add items and save.`, "success");
+        }
+
+        // --- Edit invoice mode loader ---
+        function loadBillForEditing(billId) {
+            const bill = allBills[billId];
+            if (!bill) return;
+
+            editingBillId = billId;
+            document.getElementById('invoice-editor-title').textContent = "✏️ Edit Invoice " + bill.invoiceNo;
+
+            document.getElementById('customerPhone').value = bill.customerPhone;
+            document.getElementById('customerName').value = bill.customerName;
+            document.getElementById('customerAddress').value = bill.customerAddress || '';
+            document.getElementById('customerGst').value = bill.customerGst || '';
+            
+            document.getElementById('invoiceNo').value = bill.invoiceNo;
+            document.getElementById('invoiceNo').readOnly = true;
+            
+            // Format dates
+            const bDate = new Date(bill.createdAt);
+            const offset = bDate.getTimezoneOffset() * 60000;
+            const formatted = (new Date(bDate - offset)).toISOString().slice(0, 16);
+            document.getElementById('invoiceDate').value = formatted;
+
+            document.getElementById('gstType').value = bill.gstType || 'non-gst';
+            toggleGstSupport();
+            
+            if (bill.gstType === 'gst') {
+                document.getElementById('gstPercent').value = bill.gstPercent || '18';
+            }
+
+            // Load line items
+            const tbody = document.getElementById('line-items-body');
+            tbody.innerHTML = "";
+            
+            if (bill.items && bill.items.length > 0) {
+                bill.items.forEach(item => {
+                    addInvoiceItemRow(item.productName, item.quantity, item.rate, item.date || bill.createdAt);
+                });
+            } else {
+                addInvoiceItemRow();
+            }
+
+            document.getElementById('extraCharges').value = bill.extraCharges || 0;
+            document.getElementById('discount').value = bill.discount || 0;
+            document.getElementById('amountPaid').value = bill.amountPaid || 0;
+            document.getElementById('paymentStatus').value = bill.status || 'unpaid';
+            document.getElementById('invoiceNotes').value = bill.notes || '';
+
+            // Load payments
+            const today = new Date().toLocaleDateString('en-CA');
+            if (bill.payments && Array.isArray(bill.payments)) {
+                activePayments = JSON.parse(JSON.stringify(bill.payments));
+            } else {
+                const fallbackDate = bill.paymentTimestamp ? bill.paymentTimestamp.split('T')[0] : (bill.createdAt ? bill.createdAt.split('T')[0] : today);
+                activePayments = [{ amount: bill.amountPaid || 0, date: fallbackDate }];
+            }
+            renderPaymentDeposits();
+
+            calculateGrandTotal();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast("Bill loaded in editor.", "info");
+        }
+
+        // --- Delete invoice confirmation wrapper ---
+        async function deleteBill(billId) {
+            const bill = allBills[billId];
+            if (!bill) return;
+
+            if (confirm("Are you sure you want to permanently delete Invoice " + bill.invoiceNo + "? This action is irreversible.")) {
+                try {
+                    await db.ref(`bills/${billId}`).remove();
+                    await syncCustomerLedgerTotals(bill.customerPhone);
+                    showToast("Invoice deleted.", "success");
+                } catch (e) {
+                    showToast("Failed to delete invoice: " + e.message, "error");
+                }
+            }
+        }
+
+        // --- Invoice Filters Render operations ---
+        function handleDateFilterChange() {
+            const val = document.getElementById('filterDateRange').value;
+            const customBox = document.getElementById('custom-date-inputs');
+            
+            if (val === 'custom') {
+                customBox.style.display = 'flex';
+            } else {
+                customBox.style.display = 'none';
+            }
+            filterAndLoadBillsTable();
+        }
+
+        function filterAndLoadBillsTable() {
+            const tbody = document.getElementById('bills-table-body');
+            tbody.innerHTML = '';
+            
+            const searchVal = document.getElementById('filterSearch').value.toLowerCase().trim();
+            const dateRange = document.getElementById('filterDateRange').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            const startDateVal = document.getElementById('startDate').value;
+            const endDateVal = document.getElementById('endDate').value;
+
+            const matches = [];
+
+            // Sort bills chronologically newest first using robust comparison helper
+            const sortedBills = Object.entries(allBills).sort(compareBillEntriesDescending);
+
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            
+            // Last month boundaries
+            const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+            const lastMonthVal = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+            const startOfLastMonth = new Date(lastMonthYear, lastMonthVal, 1).getTime();
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+
+            // Indian Financial Year: April 1st to March 31st
+            let fyStartYear = now.getFullYear();
+            if (now.getMonth() < 3) fyStartYear--; // Jan-March is in previous year's FY
+            const startOfFY = new Date(fyStartYear, 3, 1).getTime();
+            const endOfFY = new Date(fyStartYear + 1, 2, 31, 23, 59, 59).getTime();
+
+            sortedBills.forEach(([id, bill]) => {
+                // 1. Search Query filter (Customer Name, Phone, Invoice No)
+                const phoneMatch = bill.customerPhone.includes(searchVal);
+                const nameMatch = bill.customerName.toLowerCase().includes(searchVal);
+                const invMatch = bill.invoiceNo.toLowerCase().includes(searchVal);
+                
+                if (searchVal && !phoneMatch && !nameMatch && !invMatch) return;
+
+                // 2. Status filter
+                if (statusFilter !== 'all' && bill.status !== statusFilter) return;
+
+                // 3. Date range filters
+                const billTime = new Date(bill.createdAt).getTime();
+                if (isNaN(billTime)) return;
+
+                if (dateRange === 'today') {
+                    if (billTime < startOfToday) return;
+                } else if (dateRange === 'month') {
+                    if (billTime < startOfMonth) return;
+                } else if (dateRange === 'last-month') {
+                    if (billTime < startOfLastMonth || billTime > endOfLastMonth) return;
+                } else if (dateRange === 'financial-year') {
+                    if (billTime < startOfFY || billTime > endOfFY) return;
+                } else if (dateRange === 'custom') {
+                    if (startDateVal) {
+                        const sTime = new Date(startDateVal + "T00:00:00").getTime();
+                        if (billTime < sTime) return;
+                    }
+                    if (endDateVal) {
+                        const eTime = new Date(endDateVal + "T23:59:59").getTime();
+                        if (billTime > eTime) return;
+                    }
+                }
+
+                matches.push({ id, ...bill });
+            });
+
+            activeFilteredBills = matches;
+
+            if (matches.length === 0) {
+                document.getElementById('table-empty-state').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('table-empty-state').style.display = 'none';
+
+            matches.forEach(bill => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 700;">${bill.invoiceNo}</td>
+                    <td style="font-size:0.8rem; color:var(--text-muted);">${new Date(bill.createdAt).toLocaleDateString()}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <a href="online-excel.html?view=${bill.id}" title="View in Excel" style="text-decoration: none; font-size: 1.25rem;">📊</a>
+                            <div>
+                                <strong style="color:#fff">${bill.customerName}</strong>
+                                <div style="font-size:0.8rem; color:var(--text-muted); cursor:pointer;" onclick="openCustomerLedger('${bill.customerPhone}')">📞 ${bill.customerPhone} (Ledger)</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-weight: 700; color:#fff">₹${bill.grandTotal.toFixed(2)}</td>
+                    <td><span class="badge ${bill.status}">${bill.status.toUpperCase()}</span></td>
+                    <td>
+                        <div class="actions-group">
+                            <a href="online-excel.html?view=${bill.id}" class="btn-icon" title="View in Excel" style="text-decoration: none;">📊</a>
+                            <button class="btn-icon" title="Edit Bill" onclick="loadBillForEditing('${bill.id}')">✏️</button>
+                            <button class="btn-icon" title="Print Invoice" onclick="printInvoiceDirect('${bill.id}')">🖨️</button>
+                            <button class="btn-icon" title="Download PDF" onclick="downloadInvoicePdf('${bill.id}')">📄</button>
+                            <button class="btn-icon" title="Share on WhatsApp" onclick="shareOnWhatsApp('${bill.id}')">💬</button>
+                            <button class="btn-icon" style="color:var(--danger);" title="Delete" onclick="deleteBill('${bill.id}')">🗑️</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- Custom A6 Address Labels Direct Printing without refresh ---
+        async function printShippingLabelDirect() {
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            
+            if (!name || !phone || !address) {
+                showToast("Name, Phone, and Address are required to print a shipping label.", "error");
+                return;
+            }
+
+            const win = window.open('', '', 'width=600,height=700');
+            if (!win) {
+                showToast("Popup blocker active! Enable popups to print address labels.", "error");
+                return;
+            }
+
+            // Write direct document window A6 sized
+            win.document.write(`
+                <html>
+                <head>
+                    <title>A6 Shipping Label</title>
+                    <style>
+                        @page { size: A6 portrait; margin: 0; }
+                        body {
+                            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            margin: 0; padding: 12mm 10mm;
+                            box-sizing: border-box;
+                            color: #000; background: #fff;
+                            height: 100vh;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
+                        }
+                        .header-tag {
+                            border-bottom: 2px solid #000;
+                            padding-bottom: 5px;
+                            margin-bottom: 15px;
+                            text-align: center;
+                            font-weight: bold;
+                            font-size: 14px;
+                            letter-spacing: 1px;
+                            text-transform: uppercase;
+                        }
+                        .content-body {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: flex-start;
+                            flex: 1;
+                        }
+                        .address-block {
+                            font-size: 16px;
+                            line-height: 1.6;
+                            word-wrap: break-word;
+                            font-weight: 500;
+                            flex: 1;
+                            padding-right: 10px;
+                        }
+                        .qr-code-box {
+                            width: 100px;
+                            height: 100px;
+                            flex-shrink: 0;
+                        }
+                        .warning-disclaimer {
+                            border-top: 1px dashed #000;
+                            text-align: center;
+                            font-size: 12px;
+                            font-weight: bold;
+                            padding-top: 10px;
+                            margin-top: 15px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div>
+                        <div class="header-tag">🚢 SHIPPING ADDRESS LABEL</div>
+                        <div class="content-body">
+                            <div class="address-block">
+                                <strong>To,</strong><br>
+                                <strong>${name}</strong><br>
+                                ${address.replace(/\n/g, '<br>')}<br>
+                                <strong>Phone: ${phone}</strong>
+                            </div>
+                            <div id="qr-container" class="qr-code-box"></div>
+                        </div>
+                    </div>
+                    <div class="warning-disclaimer">
+                        ⚠️ Important: Unboxing video required for any claim.
+                    </div>
+
+                    <!-- Inject QR Code generation -->
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                    <script>
+                        try {
+                            const qrPayload = "${name} ${phone}".substring(0, 100);
+                            new QRCode(document.getElementById("qr-container"), {
+                                text: qrPayload,
+                                width: 100,
+                                height: 100,
+                                correctLevel: QRCode.CorrectLevel.M
+                            });
+                        } catch(e) { console.error("QR drawing failed", e); }
+                        
+                        // Auto print
+                        setTimeout(() => {
+                            window.focus();
+                            window.print();
+                        }, 350);
+                    <\/script>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        // --- Custom Printable Invoice direct layout ---
+        function printInvoiceDirect(billId) {
+            const bill = allBills[billId];
+            if (!bill) return;
+
+            const win = window.open('', '', 'width=900,height=1000');
+            if (!win) {
+                showToast("Popup blocker active! Enable popups to print invoices.", "error");
+                return;
+            }
+
+            const isGst = bill.gstType === 'gst';
+
+            let itemsRowsHtml = '';
+            bill.items.forEach((item, index) => {
+                itemsRowsHtml += `
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${item.productName}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.quantity}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">₹${item.rate.toFixed(2)}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight:bold;">₹${item.total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            win.document.write(`
+                <html>
+                <head>
+                    <title>Invoice - ${bill.invoiceNo}</title>
+                    <style>
+                        body { font-family: 'Outfit', sans-serif; padding: 25px; color: #333; line-height: 1.5; }
+                        .inv-header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                        .inv-title { font-size: 26px; font-weight: bold; color: #1e3a8a; }
+                        .meta-details { text-align: right; }
+                        .meta-details table { margin-left: auto; border-collapse: collapse; }
+                        .meta-details td { padding: 4px 8px; }
+                        .bill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+                        .bill-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; }
+                        .bill-card h3 { margin-top:0; border-bottom:1px solid #eee; padding-bottom:6px; color:#1e3a8a; }
+                        .items-tbl { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                        .items-tbl th { background: #f3f4f6; border: 1px solid #ddd; padding: 10px 8px; font-weight: 600; text-align: left; }
+                        .totals-tbl { width: 350px; margin-left: auto; border-collapse: collapse; margin-bottom: 30px; }
+                        .totals-tbl td { padding: 8px; border-bottom: 1px solid #eee; }
+                        .totals-tbl tr.grand { font-weight: bold; font-size: 16px; color: #1e3a8a; border-bottom: 2px solid #1e3a8a; }
+                        .footer-note { text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 20px; margin-top: 50px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="inv-header">
+                        <div>
+                            <div class="inv-title">TAX INVOICE</div>
+                            <div style="font-size: 14px; margin-top:5px; color:#555;">Retailer / Billing Agent</div>
+                        </div>
+                        <div class="meta-details">
+                            <table>
+                                <tr><td><strong>Invoice No:</strong></td><td>${bill.invoiceNo}</td></tr>
+                                <tr><td><strong>Date:</strong></td><td>${new Date(bill.createdAt).toLocaleString()}</td></tr>
+                                <tr><td><strong>Status:</strong></td><td><strong>${bill.status.toUpperCase()}</strong></td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bill-grid">
+                        <div class="bill-card">
+                            <h3>Billed To (Recipient)</h3>
+                            <strong>${bill.customerName}</strong><br>
+                            Phone: ${bill.customerPhone}<br>
+                            ${bill.customerAddress ? `Address: ${bill.customerAddress}<br>` : ''}
+                            ${bill.customerGst ? `<strong>GSTIN: ${bill.customerGst}</strong>` : ''}
+                        </div>
+                        <div class="bill-card">
+                            <h3>Payment Summary</h3>
+                            <strong>Grand Total:</strong> ₹${bill.grandTotal.toFixed(2)}<br>
+                            <strong>Amount Paid:</strong> ₹${bill.amountPaid.toFixed(2)}<br>
+                            <strong>Outstanding Balance:</strong> ₹${bill.amountPending.toFixed(2)}<br>
+                            ${(bill.payments && bill.payments.length > 0) ? `
+                                <div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 6px;">
+                                    <strong>Deposits:</strong>
+                                    <ul style="margin: 4px 0 0 0; padding-left: 16px; font-size: 13px;">
+                                        ${bill.payments.map(p => `<li>₹${p.amount.toFixed(2)} on ${new Date(p.date).toLocaleDateString()}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : `
+                                <strong>Payment Date:</strong> ${bill.paymentTimestamp ? new Date(bill.paymentTimestamp).toLocaleDateString() : 'Pending'}
+                            `}
+                        </div>
+                    </div>
+
+                    <table class="items-tbl">
+                        <thead>
+                            <tr>
+                                <th style="width: 8%; text-align: center;">S.No</th>
+                                <th style="width: 52%;">Product / Service Description</th>
+                                <th style="width: 12%; text-align: center;">Qty</th>
+                                <th style="width: 14%; text-align: right;">Rate (₹)</th>
+                                <th style="width: 14%; text-align: right;">Total (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsRowsHtml}
+                        </tbody>
+                    </table>
+
+                    <table class="totals-tbl">
+                        <tr><td>Subtotal:</td><td style="text-align: right;">₹${bill.subtotal.toFixed(2)}</td></tr>
+                        ${isGst ? `<tr><td>GST (${bill.gstPercent}%):</td><td style="text-align: right;">₹${bill.gstAmount.toFixed(2)}</td></tr>` : ''}
+                        ${bill.extraCharges > 0 ? `<tr><td>Shipping/Extra:</td><td style="text-align: right;">₹${bill.extraCharges.toFixed(2)}</td></tr>` : ''}
+                        ${bill.discount > 0 ? `<tr><td>Discount Allowed:</td><td style="text-align: right;">-₹${bill.discount.toFixed(2)}</td></tr>` : ''}
+                        <tr class="grand"><td>Grand Total:</td><td style="text-align: right;">₹${bill.grandTotal.toFixed(2)}</td></tr>
+                        <tr><td>Amount Paid:</td><td style="text-align: right;">₹${bill.amountPaid.toFixed(2)}</td></tr>
+                        <tr style="font-weight:bold; color: ${bill.amountPending > 0 ? '#b91c1c' : '#047857'}"><td>Balance Pending:</td><td style="text-align: right;">₹${bill.amountPending.toFixed(2)}</td></tr>
+                    </table>
+
+                    ${bill.notes ? `<div style="font-size:12px; margin-top:20px; padding:10px; border-left:3px solid #ddd; background:#f9f9f9;"><strong>Notes:</strong> ${bill.notes}</div>` : ''}
+
+                    <div class="footer-note">
+                        Thank you for your business!<br>
+                        <em>This is a computer-generated transaction document. No physical signatures required.</em>
+                    </div>
+
+                    <script>
+                        setTimeout(() => {
+                            window.focus();
+                            window.print();
+                        }, 300);
+                    <\/script>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        // --- PDF generation via jsPDF & AutoTable plugin ---
+        async function downloadInvoicePdf(billId) {
+            const bill = allBills[billId];
+            if (!bill) return;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Colors & Styling config
+                doc.setTextColor(30, 41, 59); // Slate-800
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("INVOICE", 14, 20);
+
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(100, 116, 139);
+                doc.text("Generated via Billing System", 14, 25);
+
+                // Meta Info Box (Right Side)
+                doc.setFont("Helvetica", "bold");
+                doc.setTextColor(30, 41, 59);
+                doc.text("INVOICE NO:", 140, 20);
+                doc.setFont("Helvetica", "normal");
+                doc.text(bill.invoiceNo, 170, 20);
+
+                doc.setFont("Helvetica", "bold");
+                doc.text("DATE:", 140, 25);
+                doc.setFont("Helvetica", "normal");
+                doc.text(new Date(bill.createdAt).toLocaleDateString(), 170, 25);
+
+                doc.setFont("Helvetica", "bold");
+                doc.text("STATUS:", 140, 30);
+                doc.setFont("Helvetica", "normal");
+                doc.text(bill.status.toUpperCase(), 170, 30);
+
+                // Section divider
+                doc.setDrawColor(226, 232, 240);
+                doc.line(14, 35, 196, 35);
+
+                // Billed to Customer detail logs
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(59, 130, 246);
+                doc.text("BILLED TO:", 14, 45);
+
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(10);
+                doc.setTextColor(30, 41, 59);
+                doc.text(bill.customerName, 14, 52);
+
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(71, 85, 105);
+                doc.text("Phone: " + bill.customerPhone, 14, 58);
+                
+                if (bill.customerAddress) {
+                    const lines = doc.splitTextToSize("Address: " + bill.customerAddress, 85);
+                    doc.text(lines, 14, 64);
+                }
+                if (bill.customerGst) {
+                    doc.setFont("Helvetica", "bold");
+                    doc.text("GSTIN: " + bill.customerGst, 14, 76);
+                    doc.setFont("Helvetica", "normal");
+                }
+
+                // Payment summary (Right Block)
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(59, 130, 246);
+                doc.text("PAYMENT INFORMATION:", 110, 45);
+
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(71, 85, 105);
+                doc.text("Total Amount Paid: INR " + bill.amountPaid.toFixed(2), 110, 52);
+                doc.text("Balance Outstanding: INR " + bill.amountPending.toFixed(2), 110, 58);
+                
+                let nextInfoY = 64;
+                if (bill.payments && bill.payments.length > 0) {
+                    doc.setFont("Helvetica", "bold");
+                    doc.text("Deposits:", 110, nextInfoY);
+                    doc.setFont("Helvetica", "normal");
+                    nextInfoY += 5;
+                    bill.payments.forEach(p => {
+                        doc.text(`- Rs. ${p.amount.toFixed(2)} on ${new Date(p.date).toLocaleDateString()}`, 115, nextInfoY);
+                        nextInfoY += 5;
+                    });
+                    doc.text("Last Updated: " + new Date(bill.updatedAt).toLocaleDateString(), 110, nextInfoY);
+                    nextInfoY += 5;
+                } else {
+                    doc.text("Payment Date: " + (bill.paymentTimestamp ? new Date(bill.paymentTimestamp).toLocaleDateString() : 'Pending'), 110, nextInfoY);
+                    nextInfoY += 6;
+                    doc.text("Last Updated: " + new Date(bill.updatedAt).toLocaleDateString(), 110, nextInfoY);
+                    nextInfoY += 6;
+                }
+
+                // Items list compiles as autotable
+                const tableBody = bill.items.map((item, index) => [
+                    index + 1,
+                    item.productName,
+                    item.quantity,
+                    "Rs. " + item.rate.toFixed(2),
+                    "Rs. " + item.total.toFixed(2)
+                ]);
+
+                let startTableY = Math.max(85, nextInfoY + 8);
+                doc.autoTable({
+                    startY: startTableY,
+                    head: [['S.No', 'Product Details', 'Qty', 'Rate', 'Total']],
+                    body: tableBody,
+                    theme: 'striped',
+                    headStyles: { fillColor: [59, 130, 246] }, // blue primary
+                    styles: { fontSize: 9 }
+                });
+
+                let finalY = doc.lastAutoTable.finalY + 10;
+
+                // Total Summary calculations
+                const summaryLabelsX = 130;
+                const summaryValuesX = 180;
+
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(71, 85, 105);
+
+                doc.text("Subtotal:", summaryLabelsX, finalY);
+                doc.text("Rs. " + bill.subtotal.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                finalY += 6;
+
+                if (bill.gstType === 'gst') {
+                    doc.text(`GST (${bill.gstPercent}%):`, summaryLabelsX, finalY);
+                    doc.text("Rs. " + bill.gstAmount.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                    finalY += 6;
+                }
+
+                if (bill.extraCharges > 0) {
+                    doc.text("Shipping/Handling:", summaryLabelsX, finalY);
+                    doc.text("Rs. " + bill.extraCharges.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                    finalY += 6;
+                }
+
+                if (bill.discount > 0) {
+                    doc.text("Discounts:", summaryLabelsX, finalY);
+                    doc.text("- Rs. " + bill.discount.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                    finalY += 6;
+                }
+
+                doc.setFont("Helvetica", "bold");
+                doc.setTextColor(30, 41, 59);
+                doc.text("Grand Total:", summaryLabelsX, finalY);
+                doc.text("Rs. " + bill.grandTotal.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                finalY += 6;
+
+                doc.text("Amount Paid:", summaryLabelsX, finalY);
+                doc.text("Rs. " + bill.amountPaid.toFixed(2), summaryValuesX, finalY, { align: "right" });
+                finalY += 6;
+
+                const pendingColor = bill.amountPending > 0 ? [185, 28, 28] : [4, 120, 87];
+                doc.setTextColor(pendingColor[0], pendingColor[1], pendingColor[2]);
+                doc.text("Balance Pending:", summaryLabelsX, finalY);
+                doc.text("Rs. " + bill.amountPending.toFixed(2), summaryValuesX, finalY, { align: "right" });
+
+                if (bill.notes) {
+                    finalY += 15;
+                    doc.setFont("Helvetica", "bold");
+                    doc.setFontSize(9);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text("Remarks:", 14, finalY);
+                    doc.setFont("Helvetica", "normal");
+                    doc.text(bill.notes, 14, finalY + 5);
+                }
+
+                // Footer lines
+                doc.setFont("Helvetica", "italic");
+                doc.setFontSize(8);
+                doc.setTextColor(148, 163, 184);
+                doc.text("Thank you for your business. Generated automatically.", 105, 280, { align: "center" });
+
+                doc.save("Invoice_" + bill.invoiceNo + ".pdf");
+                showToast("PDF downloaded.", "success");
+            } catch (e) {
+                showToast("Failed to write PDF: " + e.message, "error");
+            }
+        }
+
+        // --- WhatsApp Share generator ---
+        function shareOnWhatsApp(billId) {
+            const bill = allBills[billId];
+            if (!bill) return;
+
+            const nameEnc = encodeURIComponent(bill.customerName);
+            const amtEnc = encodeURIComponent(bill.grandTotal.toFixed(2));
+            const balEnc = encodeURIComponent(bill.amountPending.toFixed(2));
+            const codeEnc = encodeURIComponent(bill.invoiceNo);
+
+            const msg = `Hello ${bill.customerName},\nYour Invoice *${bill.invoiceNo}* is generated successfully.\nTotal Amount: *Rs. ${bill.grandTotal.toFixed(2)}*\nPaid: *Rs. ${bill.amountPaid.toFixed(2)}*\nRemaining Pending: *Rs. ${bill.amountPending.toFixed(2)}*\nStatus: *${bill.status.toUpperCase()}*.\nThank you!`;
+            const formattedPhone = bill.customerPhone.length === 10 ? '91' + bill.customerPhone : bill.customerPhone;
+            
+            const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+            window.open(waUrl, '_blank');
+        }
+
+        // --- Customer Ledger detailed modal view ---
+        let selectedCustomerPhoneForLedger = null;
+        function openCustomerLedger(phone) {
+            let customer = allCustomers[phone];
+            
+            // Handle deleted customer fallback
+            if (!customer) {
+                // Find a bill for this customer phone to get the name
+                const lastBill = Object.values(allBills)
+                    .filter(b => b.customerPhone === phone)
+                    .sort(compareBillsDescending)[0];
+                
+                const name = lastBill ? `${lastBill.customerName} (Deleted Account)` : "Deleted Customer";
+                const gst = lastBill ? (lastBill.customerGst || 'N/A') : 'N/A';
+                
+                // Calculate ledger totals from bills since customer profile is deleted
+                let totalBusiness = 0;
+                let remainingBalance = 0;
+                Object.values(allBills).forEach(b => {
+                    if (b.customerPhone === phone && b.status !== 'cancelled') {
+                        totalBusiness += parseFloat(b.grandTotal) || 0;
+                        remainingBalance += parseFloat(b.amountPending) || 0;
+                    }
+                });
+                
+                customer = {
+                    name: name,
+                    phone: phone,
+                    gst: gst,
+                    totalBusiness: totalBusiness,
+                    remainingBalance: remainingBalance
+                };
+            }
+
+            selectedCustomerPhoneForLedger = phone;
+            document.getElementById('ledger-customer-name').textContent = customer.name;
+            document.getElementById('ledger-customer-phone').textContent = phone;
+            document.getElementById('ledger-customer-gst').textContent = customer.gst || customer.customerGst || 'N/A';
+            document.getElementById('ledger-customer-total').textContent = '₹' + (customer.totalBusiness || 0).toFixed(2);
+            document.getElementById('ledger-customer-pending').textContent = '₹' + (customer.remainingBalance || 0).toFixed(2);
+
+            // Hide the delete customer button in the modal if the customer is already deleted
+            const deleteBtn = document.getElementById('ledgerDeleteBtn');
+            if (deleteBtn) {
+                if (allCustomers[phone]) {
+                    deleteBtn.style.display = 'inline-block';
+                } else {
+                    deleteBtn.style.display = 'none';
+                }
+            }
+
+            // Reset filters to defaults
+            document.getElementById('ledgerFilterDateRange').value = 'all';
+            document.getElementById('ledgerFilterStatus').value = 'all';
+            document.getElementById('ledgerStartDate').value = '';
+            document.getElementById('ledgerEndDate').value = '';
+            document.getElementById('ledger-custom-date-inputs').style.display = 'none';
+
+            // Load table
+            filterAndLoadLedgerTable();
+
+            openModal('customerLedgerModal');
+        }
+
+        async function deleteCustomerAccount() {
+            if (!selectedCustomerPhoneForLedger) return;
+            const phone = selectedCustomerPhoneForLedger;
+            const customer = allCustomers[phone];
+            if (!customer) return;
+
+            if (confirm(`Are you sure you want to delete the customer account for "${customer.name}" (${phone})? This cannot be undone. Historical invoices will remain in the database.`)) {
+                try {
+                    await db.ref(`customers/${phone}`).remove();
+                    showToast(`Customer account for "${customer.name}" deleted successfully.`, "success");
+                    closeModal('customerLedgerModal');
+                } catch (err) {
+                    showToast("Failed to delete customer: " + err.message, "error");
+                }
+            }
+        }
+
+        async function deleteActiveCustomerAccount() {
+            const phone = document.getElementById('customerPhone').value.trim();
+            if (!phone) {
+                showToast("Please enter a customer phone number first.", "error");
+                return;
+            }
+            const customer = allCustomers[phone];
+            const name = customer ? (customer.name || phone) : phone;
+
+            if (confirm(`Are you sure you want to permanently delete the customer account for "${name}" (${phone})? This action cannot be undone. Historical invoices will remain in the database.`)) {
+                try {
+                    await db.ref(`customers/${phone}`).remove();
+                    showToast(`Customer account for "${name}" deleted successfully.`, "success");
+                    clearBillScreen();
+                } catch (err) {
+                    showToast("Failed to delete customer: " + err.message, "error");
+                }
+            }
+        }
+
+        function handleLedgerDateFilterChange() {
+            const val = document.getElementById('ledgerFilterDateRange').value;
+            const customBox = document.getElementById('ledger-custom-date-inputs');
+            
+            if (val === 'custom') {
+                customBox.style.display = 'flex';
+            } else {
+                customBox.style.display = 'none';
+            }
+            filterAndLoadLedgerTable();
+        }
+
+        function filterAndLoadLedgerTable() {
+            if (!selectedCustomerPhoneForLedger) return;
+            const phone = selectedCustomerPhoneForLedger;
+            
+            const tbody = document.getElementById('ledger-rows-body');
+            tbody.innerHTML = '';
+
+            const dateRange = document.getElementById('ledgerFilterDateRange').value;
+            const statusFilter = document.getElementById('ledgerFilterStatus').value;
+            const startDateVal = document.getElementById('ledgerStartDate').value;
+            const endDateVal = document.getElementById('ledgerEndDate').value;
+
+            // Sort bills chronologically newest first using robust comparison helper
+            const customerBills = Object.values(allBills).filter(b => b.customerPhone === phone).sort(compareBillsDescending);
+
+            const matches = [];
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            
+            // Last month boundaries
+            const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+            const lastMonthVal = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+            const startOfLastMonth = new Date(lastMonthYear, lastMonthVal, 1).getTime();
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+
+            // Indian Financial Year: April 1st to March 31st
+            let fyStartYear = now.getFullYear();
+            if (now.getMonth() < 3) fyStartYear--; // Jan-March is in previous year's FY
+            const startOfFY = new Date(fyStartYear, 3, 1).getTime();
+            const endOfFY = new Date(fyStartYear + 1, 2, 31, 23, 59, 59).getTime();
+
+            customerBills.forEach(bill => {
+                // 1. Status filter
+                if (statusFilter !== 'all' && bill.status !== statusFilter) return;
+
+                // 2. Date range filters
+                const billTime = new Date(bill.createdAt).getTime();
+                if (isNaN(billTime)) return;
+
+                if (dateRange === 'today') {
+                    if (billTime < startOfToday) return;
+                } else if (dateRange === 'month') {
+                    if (billTime < startOfMonth) return;
+                } else if (dateRange === 'last-month') {
+                    if (billTime < startOfLastMonth || billTime > endOfLastMonth) return;
+                } else if (dateRange === 'financial-year') {
+                    if (billTime < startOfFY || billTime > endOfFY) return;
+                } else if (dateRange === 'custom') {
+                    if (startDateVal) {
+                        const sTime = new Date(startDateVal + "T00:00:00").getTime();
+                        if (billTime < sTime) return;
+                    }
+                    if (endDateVal) {
+                        const eTime = new Date(endDateVal + "T23:59:59").getTime();
+                        if (billTime > eTime) return;
+                    }
+                }
+
+                matches.push(bill);
+            });
+
+            activeFilteredLedgerBills = matches;
+
+            if (matches.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No records found.</td></tr>';
+            } else {
+                matches.forEach(bill => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:700; display: flex; align-items: center; gap: 6px;">
+                            <a href="online-excel.html?view=${bill.id}" title="View in Excel" style="text-decoration: none;">📊</a>
+                            <span>${bill.invoiceNo}</span>
+                        </td>
+                        <td>${new Date(bill.createdAt).toLocaleDateString()}</td>
+                        <td>${bill.gstType.toUpperCase()}</td>
+                        <td>₹${bill.grandTotal.toFixed(2)}</td>
+                        <td>₹${bill.amountPaid.toFixed(2)}</td>
+                        <td style="color:${bill.amountPending > 0 ? 'var(--danger)' : 'var(--success)'};">₹${bill.amountPending.toFixed(2)}</td>
+                        <td><span class="badge ${bill.status}">${bill.status.toUpperCase()}</span></td>
+                        <td>
+                            <a href="online-excel.html?view=${bill.id}" class="btn-icon" title="View in Excel" style="text-decoration: none;">📊</a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // --- Excel Exports Operations via SheetJS ---
+        function exportCustomerLedgerExcel() {
+            if (!selectedCustomerPhoneForLedger) return;
+            const customer = allCustomers[selectedCustomerPhoneForLedger] || {
+                name: "Deleted_Customer_" + selectedCustomerPhoneForLedger
+            };
+            
+            if (activeFilteredLedgerBills.length === 0) {
+                showToast("No ledger records found to export.", "error");
+                return;
+            }
+
+            const rows = activeFilteredLedgerBills.map(b => ({
+                "Invoice No": b.invoiceNo,
+                "Date": new Date(b.createdAt).toLocaleDateString(),
+                "Subtotal": b.subtotal,
+                "GST Type": b.gstType,
+                "GST Percent": b.gstPercent,
+                "GST Amount": b.gstAmount,
+                "Shipping": b.extraCharges,
+                "Discount": b.discount,
+                "Grand Total": b.grandTotal,
+                "Amount Paid": b.amountPaid,
+                "Pending Balance": b.amountPending,
+                "Status": b.status.toUpperCase(),
+                "Notes": b.notes || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Customer Ledger");
+            
+            XLSX.writeFile(wb, `Ledger_${customer.name.replace(/\s+/g, '_')}.xlsx`);
+            showToast("Customer history ledger downloaded as Excel.", "success");
+        }
+
+        function viewSelectedCustomerExcel() {
+            const phone = document.getElementById('customerPhone').value.trim();
+            if (!phone) {
+                showToast("Please enter a customer phone number first.", "error");
+                return;
+            }
+            window.open(`online-excel.html?search=${encodeURIComponent(phone)}&tab=items`, '_blank');
+        }
+
+        function viewLedgerCustomerInExcel() {
+            if (!selectedCustomerPhoneForLedger) return;
+            window.open(`online-excel.html?search=${encodeURIComponent(selectedCustomerPhoneForLedger)}&tab=items`, '_blank');
+        }
+
+        function triggerMonthlyExcelDownload() {
+            const m = prompt("Enter Year-Month to export (e.g. 2026-05):", "2026-05");
+            if (!m) return;
+
+            const [year, month] = m.split('-');
+            const targetY = parseInt(year);
+            const targetM = parseInt(month) - 1; // 0-indexed month
+
+            if (isNaN(targetY) || isNaN(targetM) || targetM < 0 || targetM > 11) {
+                showToast("Please enter a valid Year-Month.", "error");
+                return;
+            }
+
+            const matches = Object.values(allBills).filter(bill => {
+                const bDate = new Date(bill.createdAt);
+                return !isNaN(bDate.getTime()) && bDate.getFullYear() === targetY && bDate.getMonth() === targetM;
+            });
+
+            if (matches.length === 0) {
+                showToast("No invoices found for the specified month.", "error");
+                return;
+            }
+
+            compileAndDownloadBillsExcel(matches, `Monthly_Report_${m}.xlsx`);
+        }
+
+        function exportDateRangeExcel() {
+            const sVal = document.getElementById('exportStartDate').value;
+            const eVal = document.getElementById('exportEndDate').value;
+
+            if (!sVal || !eVal) {
+                showToast("Please provide Start Date and End Date.", "error");
+                return;
+            }
+
+            const startTime = new Date(sVal + "T00:00:00").getTime();
+            const endTime = new Date(eVal + "T23:59:59").getTime();
+
+            const matches = Object.values(allBills).filter(bill => {
+                const bTime = new Date(bill.createdAt).getTime();
+                return !isNaN(bTime) && bTime >= startTime && bTime <= endTime;
+            });
+
+            if (matches.length === 0) {
+                showToast("No records found in selected range.", "error");
+                return;
+            }
+
+            compileAndDownloadBillsExcel(matches, `Report_${sVal}_to_${eVal}.xlsx`);
+        }
+
+        function exportFilteredBillsExcel() {
+            if (!activeFilteredBills || activeFilteredBills.length === 0) {
+                showToast("No filtered invoices to export.", "error");
+                return;
+            }
+            compileAndDownloadBillsExcel(activeFilteredBills, "Filtered_Invoices_Report.xlsx");
+        }
+
+        function compileAndDownloadBillsExcel(billList, filename) {
+            const rows = billList.map(b => ({
+                "Invoice Code": b.invoiceNo,
+                "Date": new Date(b.createdAt).toLocaleDateString(),
+                "Customer Name": b.customerName,
+                "Phone": b.customerPhone,
+                "GSTIN": b.customerGst || '',
+                "Billing Type": b.gstType,
+                "Subtotal": b.subtotal,
+                "GST Paid": b.gstAmount,
+                "Shipping/Other": b.extraCharges,
+                "Discount": b.discount,
+                "Grand Total": b.grandTotal,
+                "Amount Paid": b.amountPaid,
+                "Balance Outstanding": b.amountPending,
+                "Status": b.status.toUpperCase(),
+                "Remarks": b.notes || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Invoices Report");
+            XLSX.writeFile(wb, filename);
+            showToast("Report exported successfully.", "success");
+        }
+
+        function exportFullDatabaseExcel() {
+            const billsRows = Object.values(allBills).map(b => ({
+                "Invoice Code": b.invoiceNo,
+                "Date": new Date(b.createdAt).toLocaleDateString(),
+                "Customer Name": b.customerName,
+                "Phone": b.customerPhone,
+                "GSTIN": b.customerGst || '',
+                "Billing Type": b.gstType,
+                "Subtotal": b.subtotal,
+                "GST Paid": b.gstAmount,
+                "Shipping/Other": b.extraCharges,
+                "Discount": b.discount,
+                "Grand Total": b.grandTotal,
+                "Amount Paid": b.amountPaid,
+                "Balance Outstanding": b.amountPending,
+                "Status": b.status.toUpperCase(),
+                "Remarks": b.notes || ''
+            }));
+
+            const customersRows = Object.values(allCustomers).map(c => ({
+                "Name": c.name,
+                "Phone": c.phone,
+                "Address": c.address || '',
+                "GSTIN": c.gst || '',
+                "Total Business Done": c.totalBusiness || 0,
+                "Outstanding Balance": c.remainingBalance || 0,
+                "Last Transaction Date": c.lastBillingDate ? new Date(c.lastBillingDate).toLocaleDateString() : ''
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const wsBills = XLSX.utils.json_to_sheet(billsRows);
+            const wsCustomers = XLSX.utils.json_to_sheet(customersRows);
+
+            XLSX.utils.book_append_sheet(wb, wsBills, "All Invoices");
+            XLSX.utils.book_append_sheet(wb, wsCustomers, "All Customers");
+
+            XLSX.writeFile(wb, "Full_Database_Backup.xlsx");
+            showToast("Full database backup exported as Excel.", "success");
+        }
+
+        // --- Batch imports customer Excel records ---
+        function handleCustomerExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                    let importCount = 0;
+                    for (let row of rows) {
+                        // Look for fields (fuzzy matching headers)
+                        const phone = String(row["Phone"] || row["phone"] || row["Phone Number"] || "").replace(/\D/g, '');
+                        const name = row["Name"] || row["name"] || row["Customer Name"] || "";
+                        const address = row["Address"] || row["address"] || "";
+                        const gst = String(row["GSTIN"] || row["gstin"] || row["GST"] || "").toUpperCase().trim();
+
+                        if (phone && phone.length >= 10 && name) {
+                            await db.ref(`customers/${phone}`).update({
+                                name: name,
+                                phone: phone,
+                                address: address,
+                                gst: gst !== 'UNDEFINED' && gst !== 'NULL' ? gst : null
+                            });
+                            importCount++;
+                        }
+                    }
+                    showToast(`Successfully registered/merged ${importCount} customers.`, "success");
+                    closeModal('utilitiesModal');
+                } catch(err) {
+                    showToast("Failed to parse customer Excel: " + err.message, "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- JSON backup utilities ---
+        function downloadBackupJson() {
+            db.ref().once('value', snap => {
+                const data = snap.val();
+                const jsonStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Firebase_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast("JSON backup downloaded.", "success");
+            });
+        }
+
+        function handleJsonRestore(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (confirm("WARNING: This will overwrite your existing billing, customer directory and configuration settings in Firebase Realtime Database. Continue?")) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        await db.ref().set(json);
+                        showToast("Full database backup restored successfully.", "success");
+                        closeModal('utilitiesModal');
+                    } catch(err) {
+                        showToast("JSON parsing failed: " + err.message, "error");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // --- Toast & Modal Utility routines ---
+        function showToast(msg, type = "info") {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = 'show ' + type;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('open');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+
+        function showSettingsModal() {
+            document.getElementById('settingsPrefix').value = systemSettings.invoicePrefix;
+            document.getElementById('settingsNextNo').value = systemSettings.nextInvoiceNumber;
+            openModal('settingsModal');
+        }
+
+        function showUtilityModal() {
+            openModal('utilitiesModal');
+        }
+
+        function showAddCustomerModal() {
+            document.getElementById('acName').value = "";
+            document.getElementById('acPhone').value = "";
+            document.getElementById('acAddress').value = "";
+            document.getElementById('acGst').value = "";
+            openModal('addCustomerModal');
+        }
+
+        async function saveCustomerAccount() {
+            const name = document.getElementById('acName').value.trim();
+            const phone = document.getElementById('acPhone').value.trim().replace(/\D/g, '');
+            const address = document.getElementById('acAddress').value.trim();
+            const gst = document.getElementById('acGst').value.trim().toUpperCase();
+
+            if (!name) {
+                showToast("Please enter Customer Name.", "error");
+                return;
+            }
+            if (!phone || phone.length < 10) {
+                showToast("Please enter a valid 10-digit Phone Number.", "error");
+                return;
+            }
+
+            try {
+                if (allCustomers && allCustomers[phone]) {
+                    const confirmOverwrite = confirm(`A customer with phone ${phone} (${allCustomers[phone].name}) already exists. Do you want to update their details?`);
+                    if (!confirmOverwrite) return;
+                }
+
+                await db.ref(`customers/${phone}`).update({
+                    name: name,
+                    phone: phone,
+                    address: address,
+                    gst: gst,
+                    lastBillingDate: (allCustomers && allCustomers[phone] && allCustomers[phone].lastBillingDate) ? allCustomers[phone].lastBillingDate : null
+                });
+
+                await syncCustomerLedgerTotals(phone);
+
+                showToast(`Customer account for "${name}" saved successfully.`, "success");
+                closeModal('addCustomerModal');
+            } catch (err) {
+                showToast("Failed to save customer account: " + err.message, "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

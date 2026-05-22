@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Tracking Photos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://www.17track.net/externalcall.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --pl: #818cf8;
+            --bg: #0a0f1e;
+            --card: rgba(20, 30, 55, .78);
+            --inp: rgba(10, 15, 35, .7);
+            --txt: #f1f5f9;
+            --muted: #94a3b8;
+            --bdr: rgba(255, 255, 255, .09);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            background-image: radial-gradient(ellipse at 80% 0%, rgba(34, 211, 238, .15), transparent 50%), radial-gradient(ellipse at 10% 100%, rgba(99, 102, 241, .15), transparent 50%);
+            color: var(--txt);
+            min-height: 100vh;
+            padding: 28px 16px 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .ph {
+            text-align: center;
+            margin-bottom: 32px;
+            width: 100%;
+            max-width: 940px;
+        }
+
+        .ph h1 {
+            font-size: clamp(1.6rem, 4vw, 2.6rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .ph p {
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--bdr);
+            border-radius: 20px;
+            padding: 26px;
+            width: 100%;
+            max-width: 940px;
+            box-shadow: 0 28px 56px rgba(0, 0, 0, .35);
+            margin-bottom: 22px;
+        }
+
+        /* Search */
+        .sbox {
+            position: relative;
+            margin-bottom: 14px;
+        }
+
+        .sbox .si {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+
+        .sbox input {
+            width: 100%;
+            background: var(--inp);
+            border: 1.5px solid var(--bdr);
+            border-radius: 13px;
+            padding: 14px 16px 14px 48px;
+            color: var(--txt);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color .25s, box-shadow .25s;
+        }
+
+        .sbox input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .2);
+        }
+
+        .sbox input::placeholder {
+            color: var(--muted);
+        }
+
+        /* Stats */
+        .rstats {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            font-size: .88rem;
+            color: var(--muted);
+            flex-wrap: wrap;
+        }
+
+        .rstats strong {
+            color: var(--pl);
+        }
+
+        .rbadge {
+            background: rgba(99, 102, 241, .15);
+            color: var(--pl);
+            padding: 2px 11px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: .82rem;
+        }
+
+        /* Results grid */
+        #rgrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 18px;
+        }
+
+        .rc {
+            background: rgba(10, 15, 35, .72);
+            border: 1px solid var(--bdr);
+            border-radius: 15px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s, border-color .2s;
+            position: relative;
+        }
+
+        .rc:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 38px rgba(99, 102, 241, .22);
+            border-color: rgba(99, 102, 241, .4);
+        }
+
+        .rc img {
+            width: 100%;
+            height: 175px;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+
+        .rc .ci {
+            padding: 13px 15px;
+        }
+
+        .rc .cn {
+            font-weight: 700;
+            font-size: .95rem;
+            margin-bottom: 5px;
+        }
+
+        .rc .ml {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            background: rgba(99, 102, 241, .12);
+            border: 1px solid rgba(99, 102, 241, .2);
+            color: var(--pl);
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .chip.ph {
+            background: rgba(34, 211, 238, .1);
+            border-color: rgba(34, 211, 238, .25);
+            color: #67e8f9;
+        }
+
+        .chip.dt {
+            background: rgba(255, 255, 255, .05);
+            border-color: var(--bdr);
+            color: var(--muted);
+        }
+
+        .vo {
+            position: absolute;
+            inset: 0;
+            height: 175px;
+            background: rgba(99, 102, 241, 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .25s;
+        }
+
+        .rc:hover .vo {
+            background: rgba(99, 102, 241, .22);
+        }
+
+        .vo span {
+            background: rgba(0, 0, 0, .72);
+            color: #fff;
+            padding: 7px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: .88rem;
+            opacity: 0;
+            transform: scale(.85);
+            transition: opacity .25s, transform .25s;
+        }
+
+        .rc:hover .vo span {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        mark {
+            background: rgba(253, 224, 71, .3);
+            color: #fde047;
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        /* State boxes */
+        .sb {
+            text-align: center;
+            padding: 55px 20px;
+            color: var(--muted);
+        }
+
+        .sb .si2 {
+            font-size: 3.2rem;
+            margin-bottom: 12px;
+        }
+
+        @media(max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+
+            .ph h1 {
+                font-size: 2rem;
+            }
+
+            .card {
+                padding: 18px;
+                border-radius: 16px;
+            }
+
+            #rgrid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .rc img {
+                height: 150px;
+            }
+
+            .vo {
+                height: 150px;
+            }
+
+            .rstats {
+                font-size: 0.8rem;
+            }
+        }
+
+        .sb h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--txt);
+            margin-bottom: 5px;
+        }
+
+        .sb p {
+            font-size: .92rem;
+        }
+
+        /* Modal */
+        #imod {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .94);
+            z-index: 10000;
+            align-items: center;
+            justify-content: flex-start;
+            flex-direction: column;
+            gap: 20px;
+            padding: 50px 20px 30px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        #imod.open {
+            display: flex;
+        }
+
+        #imod .mw {
+            max-width: 94vw;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        #imod .mw img {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 13px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, .6);
+            display: block;
+        }
+
+        .dl-btn-secondary {
+            width: 100%;
+            max-width: 500px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bdr);
+            color: var(--muted);
+            padding: 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .dl-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        #imod .mi {
+            background: rgba(20, 30, 55, .96);
+            border: 1px solid var(--bdr);
+            border-radius: 15px;
+            padding: 16px 22px;
+            max-width: 94vw;
+            width: 500px;
+        }
+
+        .track-input-box {
+            width: 100%;
+            max-width: 500px;
+            padding: 15px 20px;
+            border: 1px solid var(--bdr);
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        #imod .mi .mn {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        #imod .mi .mm {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        #imod .cm {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10005;
+            font-size: 1.5rem;
+            color: #fff;
+            cursor: pointer;
+            background: #ef4444;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        #imod .cm:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
+        .dlbtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff;
+            text-decoration: none;
+            padding: 9px 20px;
+            border-radius: 9px;
+            font-weight: 600;
+            font-size: .88rem;
+            transition: all .2s;
+        }
+
+        .dlbtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 18px rgba(99, 102, 241, .5);
+        }
+
+        @media(max-width:580px) {
+            #rgrid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            #imod .mi,
+            .track-input-box {
+                width: 92vw;
+                padding: 12px 16px;
+            }
+
+            #imod .mw img {
+                max-height: 60vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ph">
+        <h1>🔎 Search Tracking Photos</h1>
+        <p>Find your photo using the last 5 digits of your phone number.</p>
+    </div>
+
+    <!-- Search -->
+    <div class="card">
+        <div class="sbox"><span class="si">🔍</span><input type="text" id="si"
+                placeholder="Enter last 5 digits of your phone number..." autocomplete="off" autofocus
+                oninput="doSearch()"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <div class="rstats" id="rstats" style="display:none;">
+            Showing <strong id="rcnt">0</strong> result(s) <span class="rbadge" id="rbadge">0</span>
+        </div>
+        <div id="rc">
+            <div class="sb" id="init-st">
+                <div class="si2">🔎</div>
+                <h3>Start searching</h3>
+                <p>Type the last 5 digits of your phone number above.</p>
+            </div>
+            <div class="sb" id="empty-st" style="display:none;">
+                <div class="si2">😕</div>
+                <h3>No results found</h3>
+                <p>Try a different search term.</p>
+            </div>
+            <div class="sb" id="norec-st" style="display:none;">
+                <div class="si2">📭</div>
+                <h3>No records loaded</h3>
+                <p>Click <strong>Load Records</strong> above first.</p>
+            </div>
+            <div class="sb" id="load-st" style="display:none;">
+                <div class="si2">⏳</div>
+                <h3>Loading from Database…</h3>
+                <p>Please wait.</p>
+            </div>
+            <div id="rgrid"></div>
+        </div>
+    </div>
+    <div id="imod">
+        <div class="mw">
+            <button class="cm" onclick="closeMod()" title="Close">✕</button>
+            <img id="mimg" src="" alt="">
+        </div>
+
+        <!-- Tracking Area -->
+        <div id="tracking-action-area"
+            style="width:100%; display:flex; flex-direction:column; align-items:center; gap:12px;"></div>
+
+        <div class="track-input-box" id="manual-track-box">
+            <label
+                style="display:block; font-size:.68rem; color:var(--pl); margin-bottom:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px;">🚚
+                Manual Tracking</label>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="manual-awb" placeholder="Type Tracking ID..."
+                    style="flex:1; background:var(--inp); border:1px solid var(--bdr); border-radius:8px; padding:10px; color:#fff; outline:none; font-size:0.9rem;">
+                <button class="dlbtn"
+                    style="margin-top:0; padding:0 20px; background:var(--primary); font-size:0.85rem;"
+                    onclick="startManualTrack()">Track</button>
+            </div>
+        </div>
+
+        <div class="mi">
+            <div class="mn" id="mname"></div>
+            <div class="mm" id="mmeta"></div>
+        </div>
+    </div>
+
+
+    <script>
+        let allRecords = [];
+        let activeFilter = 'all';
+
+        // State helpers
+        function showState(id) {
+            ['init-st', 'empty-st', 'norec-st', 'load-st'].forEach(s => document.getElementById(s).style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+            document.getElementById('rgrid').innerHTML = '';
+            document.getElementById('rstats').style.display = 'none';
+        }
+
+        // Load records
+        async function loadAndSearch() {
+            // Load from cache first
+            const cached = localStorage.getItem('ghRecordsCache');
+            if (cached) {
+                try {
+                    allRecords = JSON.parse(cached);
+                    showState('init-st');
+                    const q = document.getElementById('si').value.trim();
+                    if (q.length >= 5) doSearch();
+                } catch (e) {
+                    localStorage.removeItem('ghRecordsCache');
+                }
+            } else {
+                showState('load-st');
+            }
+
+            try {
+                let loaded = false;
+                let freshRecords = [];
+
+                if (firebaseDb) {
+                    try {
+                        const snapshot = await firebaseDb.ref('records').once('value');
+                        const val = snapshot.val();
+                        if (val) {
+                            freshRecords = Array.isArray(val) ? val : Object.values(val);
+                        }
+                        freshRecords = freshRecords.filter(r => r !== null && r !== undefined);
+                        loaded = true;
+                    } catch (e) {
+                        console.error("Firebase DB read failed:", e);
+                    }
+                }
+
+                if (!loaded) {
+                    // Try fetching from GitHub directly for latest data
+                    const repo = 'ezyship/track';
+                    const branch = 'main';
+                    let res = await fetch(`https://raw.githubusercontent.com/${repo}/${branch}/records.json?v=` + Date.now());
+
+                    if (!res.ok) {
+                        // Fallback to local if GitHub fails
+                        res = await fetch('records.json?v=' + Date.now());
+                    }
+
+                    if (!res.ok) throw new Error('Tracking records not found on GitHub or locally.');
+                    const text = await res.text();
+                    freshRecords = text.trim() ? JSON.parse(text) : [];
+                }
+
+                // Save to cache
+                localStorage.setItem('ghRecordsCache', JSON.stringify(freshRecords));
+                allRecords = freshRecords;
+
+                // Update UI state if it was loading, or just refresh search if input is active
+                const q = document.getElementById('si').value.trim();
+                const isLoadingShown = document.getElementById('load-st').style.display !== 'none';
+                if (isLoadingShown || q.length >= 5) {
+                    showState('init-st');
+                    if (q.length >= 5) doSearch();
+                }
+            } catch (e) {
+                if (!allRecords.length) {
+                    showState('norec-st');
+                    document.getElementById('norec-st').querySelector('p').textContent = e.message;
+                } else {
+                    console.warn("Background refresh failed, using cached records:", e);
+                }
+            }
+        }
+
+        function hl(text, q) {
+            if (text === undefined || text === null) return '';
+            if (!q) return text;
+            return String(text).replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
+        }
+        function fmtDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso); if (isNaN(d)) return iso;
+            const p = n => String(n).padStart(2, '0');
+            return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+        }
+
+        function doSearch() {
+            const raw = document.getElementById('si').value.trim();
+            const q = raw.toLowerCase();
+            if (!allRecords.length) { showState('norec-st'); return; }
+
+            // Require exactly/at least 5 characters for security
+            if (q.length < 5) { showState('init-st'); return; }
+
+            const matched = allRecords.filter(r =>
+                String(r.phone || '').endsWith(q)
+            );
+
+            ['init-st', 'empty-st', 'norec-st', 'load-st'].forEach(s => document.getElementById(s).style.display = 'none');
+
+            if (!matched.length) { document.getElementById('empty-st').style.display = 'block'; document.getElementById('rstats').style.display = 'none'; document.getElementById('rgrid').innerHTML = ''; return; }
+
+            document.getElementById('rstats').style.display = 'flex';
+            document.getElementById('rcnt').textContent = matched.length;
+            document.getElementById('rbadge').textContent = matched.length;
+
+            document.getElementById('rgrid').innerHTML = matched.map(r => {
+                return `
+    <div class="rc" onclick="openMod('${r.id}')">
+      <div class="vo"><span>🔍 View Photo</span></div>
+      <img src="${r.photoUrl}" alt="parcel photo" loading="lazy">
+      <div class="ci">
+        <div class="cn">👤 ${hl(r.name, q)}</div>
+        <div class="ml">
+          <span class="chip">📍 ${hl(r.pincode, q)}</span>
+          <span class="chip ph">📞 ${hl(r.phone, q)}</span>
+          ${r.awb ? `<span class="chip" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.2); color:#34d399;">🚚 ${hl(r.awb, q)}</span>` : ''}
+          <span class="chip dt">🕐 ${fmtDate(r.uploadedAt)}</span>
+        </div>
+      </div>
+    </div>`;
+            }).join('');
+        }
+
+        function openMod(id) {
+            const r = allRecords.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('mimg').src = r.photoUrl;
+            document.getElementById('mname').textContent = `👤 ${r.name}`;
+            document.getElementById('mmeta').innerHTML = `
+        <span class="chip">📍 ${r.pincode}</span>
+        <span class="chip ph">📞 ${r.phone}</span>
+        ${r.awb ? `<span class="chip" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.2); color:#34d399;">🚚 ${r.awb}</span>` : ''}
+        <span class="chip dt">🕐 ${fmtDate(r.uploadedAt)}</span>
+      `;
+
+            // Setup Tracking Area
+            const actionArea = document.getElementById('tracking-action-area');
+            const manualBox = document.getElementById('manual-track-box');
+            actionArea.innerHTML = '';
+
+            if (r.awb) {
+                manualBox.style.display = 'none';
+                actionArea.innerHTML = `
+          <a href="livestatus.html?awb=${encodeURIComponent(r.awb)}" class="dlbtn" style="width:100%; max-width:500px; justify-content:center; background:linear-gradient(135deg, #10b981, #059669); border:none; font-size:1.1rem; padding:18px; border-radius:15px; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4); transition: transform 0.2s;">🚀 Click to Track Status</a>
+          <a href="${r.photoUrl}" class="dl-btn-secondary" style="margin-top:5px;" download="tracking_photo_${r.id}.jpg">⬇️ Download Photo</a>
+        `;
+            } else {
+                manualBox.style.display = 'block';
+                document.getElementById('manual-awb').value = '';
+                actionArea.innerHTML = `
+          <a href="${r.photoUrl}" class="dl-btn-secondary" download="tracking_photo_${r.id}.jpg">⬇️ Download Photo</a>
+        `;
+            }
+
+            document.getElementById('imod').classList.add('open');
+        }
+
+        function startManualTrack() {
+            const num = document.getElementById('manual-awb').value.trim();
+            if (!num) { alert("Please enter the tracking ID from the photo."); return; }
+            window.location.href = `livestatus.html?awb=${encodeURIComponent(num)}`;
+        }
+
+        function closeMod() { document.getElementById('imod').classList.remove('open'); document.getElementById('mimg').src = ''; }
+
+        document.getElementById('imod').addEventListener('click', e => { if (e.target === document.getElementById('imod')) closeMod(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMod(); } });
+
+        // Init
+        loadAndSearch();
+    </script>
+</body>
+
+</html>

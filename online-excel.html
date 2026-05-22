@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Excel Spreadsheet - Ezyship Billing</title>
+    <style id="auth-guard-style">body { display: none !important; }</style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>enforceAuth();</script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0f1e;
+            --card: rgba(30, 41, 59, 0.65);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59, 130, 246, 0.15), transparent),
+                radial-gradient(ellipse 60% 50% at 80% 110%, rgba(139, 92, 246, 0.15), transparent);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 28px 20px 60px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            font-size: clamp(1.6rem, 4vw, 2.6rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 6px;
+        }
+
+        nav {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #93c5fd;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 9px 20px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 50px;
+            background: rgba(59, 130, 246, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.25s;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        nav a:hover,
+        nav a.on {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.7);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+            color: white;
+        }
+
+        .excel-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .excel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 10px 16px;
+            padding-left: 36px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.88rem;
+            width: 260px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .filter-select {
+            padding: 10px 14px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.88rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+        }
+
+        .grid-wrapper {
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.25);
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            text-align: left;
+        }
+
+        .excel-table th {
+            position: sticky;
+            top: 0;
+            background: #1e293b;
+            color: var(--muted);
+            font-weight: 600;
+            padding: 12px 16px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            user-select: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .excel-table th:hover {
+            background: #334155;
+            color: white;
+        }
+
+        .excel-table th.sorted-asc::after {
+            content: " ▲";
+            font-size: 0.7rem;
+        }
+
+        .excel-table th.sorted-desc::after {
+            content: " ▼";
+            font-size: 0.7rem;
+        }
+
+        .excel-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.03);
+            color: #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .excel-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+            color: white;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge.paid { background: rgba(16, 185, 129, 0.15); color: #a7f3d0; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .badge.unpaid { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.25); }
+        .badge.partial { background: rgba(245, 158, 11, 0.15); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.25); }
+        .badge.cancelled { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+
+        .summary-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 24px;
+            margin-top: 20px;
+            font-size: 0.92rem;
+            background: rgba(15, 23, 42, 0.3);
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .summary-item strong {
+            color: white;
+            font-size: 1rem;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            z-index: 10000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #toast.success { background: rgba(16, 185, 129, 0.95); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); }
+        #toast.error { background: rgba(239, 68, 68, 0.95); box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); }
+        #toast.info { background: rgba(59, 130, 246, 0.95); box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3); }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* View Bill Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 850px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.open .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .modal-close-btn:hover {
+            color: white;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .customer-bill-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .info-group span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-group span strong {
+            color: white;
+        }
+
+        .modal-table-wrapper {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: rgba(15, 23, 42, 0.25);
+        }
+
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            text-align: left;
+        }
+
+        .modal-table th {
+            background: #1e293b;
+            color: var(--muted);
+            font-weight: 600;
+            padding: 10px 14px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .modal-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.03);
+            color: #cbd5e1;
+        }
+
+        .modal-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .bill-breakdown {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 16px;
+        }
+
+        .breakdown-row {
+            display: flex;
+            width: 280px;
+            justify-content: space-between;
+            color: var(--muted);
+        }
+
+        .breakdown-row.grand-total {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            padding-top: 8px;
+            margin-top: 4px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-download-bill {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-download-bill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-modal-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-modal-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .btn-view {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn-view:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: white;
+        }
+
+        /* Mobile Responsiveness Media Queries */
+        @media (max-width: 768px) {
+            .modal-card {
+                width: 95%;
+                max-height: 90vh;
+            }
+            .customer-bill-info {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+            .bill-breakdown {
+                align-items: stretch;
+            }
+            .breakdown-row {
+                width: 100%;
+            }
+        }
+
+        /* Mobile Responsiveness Media Queries */
+        @media (max-width: 768px) {
+            body {
+                padding: 16px 10px 40px;
+            }
+
+            header p {
+                font-size: 0.8rem;
+            }
+
+            nav {
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+
+            nav a {
+                padding: 7px 14px;
+                font-size: 0.8rem;
+            }
+
+            .excel-container {
+                padding: 16px;
+                border-radius: 12px;
+            }
+
+            .excel-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding-bottom: 16px;
+                margin-bottom: 16px;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 4px;
+                border-radius: 8px;
+            }
+
+            .tab-btn {
+                flex: 1 1 auto;
+                justify-content: center;
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .search-box input {
+                width: 100%;
+                font-size: 0.85rem;
+            }
+
+            .filter-select {
+                width: 100%;
+                font-size: 0.85rem;
+            }
+
+            .btn-export {
+                width: 100%;
+                justify-content: center;
+                font-size: 0.85rem;
+                padding: 11px 16px;
+            }
+
+            .grid-wrapper {
+                max-height: 50vh;
+                border-radius: 8px;
+            }
+
+            .excel-table {
+                font-size: 0.8rem;
+            }
+
+            .excel-table th, 
+            .excel-table td {
+                padding: 8px 12px;
+            }
+
+            .summary-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                font-size: 0.85rem;
+                padding: 12px 16px;
+            }
+
+            .summary-item {
+                display: flex;
+                justify-content: space-between;
+                border-left: none !important;
+                padding-left: 0 !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                padding-bottom: 8px;
+            }
+
+            .summary-item:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .modal-controls-section > div {
+                grid-template-columns: 1fr !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📊 Online Excel spreadsheet</h1>
+        <p>Real-time interactive dashboard. Inspect details, apply dynamic filters, sort records, and export to spreadsheet.</p>
+    </header>
+
+    <nav>
+        <a href="prints/index.html">📄 Labels</a>
+        <a href="prints/scanner.html">🔍 Scanner</a>
+        <a href="prints/dispatched.html">📋 Dispatched</a>
+        <a href="uploads.html">📸 Upload Tracking</a>
+        <a href="search.html">🔎 Search Photos</a>
+        <a href="billing.html">🧾 Billing</a>
+        <a href="gst-billing.html">🧾 GST Billing</a>
+        <a href="customers.html">👤 Customers</a>
+        <a href="online-excel.html" class="on">📊 Online Excel</a>
+        <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>
+    </nav>
+
+    <div class="excel-container">
+        <div class="excel-header">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('invoices')">🧾 Invoices Sheet</button>
+                <button class="tab-btn" onclick="switchTab('customers')">👥 Customers Sheet</button>
+                <button class="tab-btn" onclick="switchTab('items')">📦 Line Items Sheet</button>
+            </div>
+
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" id="excelSearch" placeholder="Search spreadsheet..." onkeyup="handleFilterChange()">
+                </div>
+                <select id="statusFilter" class="filter-select" onchange="handleFilterChange()">
+                    <option value="all">All Statuses</option>
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial Paid</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <button class="btn-export" onclick="exportFilteredDataToExcel()">🟢 Export Spreadsheet</button>
+            </div>
+        </div>
+
+        <div class="grid-wrapper">
+            <table class="excel-table" id="excelTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="summary-bar" id="summaryBar">
+            <!-- Dynamic totals -->
+        </div>
+    </div>
+
+    <!-- View Bill Modal -->
+    <div id="viewBillModal" class="modal-overlay" onclick="if(event.target.id === 'viewBillModal') closeViewBillModal()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>🧾 Invoice Details - <span id="mInvoiceNo"></span></h2>
+                <button class="modal-close-btn" onclick="closeViewBillModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="customer-bill-info">
+                    <div class="info-group">
+                        <span>Customer Name</span>
+                        <strong id="mCustomerName"></strong>
+                    </div>
+                    <div class="info-group">
+                        <span>Phone Number</span>
+                        <strong id="mCustomerPhone"></strong>
+                    </div>
+                    <div class="info-group">
+                        <span>Billing Date</span>
+                        <strong id="mInvoiceDate"></strong>
+                    </div>
+                    <div class="info-group">
+                        <span>Status</span>
+                        <span id="mStatusBadge" class="badge"></span>
+                    </div>
+                    <div class="info-group" style="grid-column: 1 / -1;">
+                        <span>Shipping Address</span>
+                        <strong id="mCustomerAddress"></strong>
+                    </div>
+                    <div class="info-group" style="grid-column: 1 / -1;">
+                        <span>GSTIN</span>
+                        <strong id="mCustomerGst"></strong>
+                    </div>
+                </div>
+
+                <div class="modal-table-wrapper">
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product / Item Description</th>
+                                <th>Quantity</th>
+                                <th>Rate (INR)</th>
+                                <th>Total (INR)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bill-breakdown">
+                    <div class="breakdown-row">
+                        <span>Subtotal:</span>
+                        <span id="mSubtotal"></span>
+                    </div>
+                    <div class="breakdown-row" id="mGstRow">
+                        <span id="mGstLabel">GST:</span>
+                        <span id="mGstAmount"></span>
+                    </div>
+                    <div class="breakdown-row" id="mExtraRow">
+                        <span>Extra Charges:</span>
+                        <span id="mExtraAmount"></span>
+                    </div>
+                    <div class="breakdown-row" id="mDiscountRow">
+                        <span>Discount:</span>
+                        <span id="mDiscountAmount"></span>
+                    </div>
+                    <div class="breakdown-row grand-total">
+                        <span>Grand Total:</span>
+                        <span id="mGrandTotal"></span>
+                    </div>
+                    <div class="breakdown-row" style="color: var(--success); font-weight: 600;">
+                        <span>Amount Paid:</span>
+                        <span id="mAmountPaid"></span>
+                    </div>
+                    <div class="breakdown-row" style="color: var(--danger); font-weight: 600;">
+                        <span>Amount Pending:</span>
+                        <span id="mAmountPending"></span>
+                    </div>
+                    <!-- Dynamic Payment Deposits Details Breakdown -->
+                    <div id="mPaymentsSection" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px; display: none;">
+                        <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">Deposits History</span>
+                        <div id="mPaymentsList" style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px;"></div>
+                    </div>
+                </div>
+
+                <!-- GST Download Option & Payment Status Modifier -->
+                <div class="modal-controls-section" style="margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 15px;">
+                    <h3 style="margin-bottom: 12px; font-size: 0.95rem; color: #93c5fd; font-weight: 600; display: flex; align-items: center; gap: 6px;">⚙️ Payment Settings & Excel Options</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        
+                        <!-- Change Payment Status Block -->
+                        <div class="control-box" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 6px;">
+                            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Update Payment Status</span>
+                            
+                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                <div style="flex: 1;">
+                                    <label for="mEditStatus" style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 2px;">Status</label>
+                                    <select id="mEditStatus" onchange="onModalStatusChange()" style="width: 100%; padding: 6px 10px; background: rgba(15, 23, 42, 0.6); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-size: 0.8rem; outline: none; cursor: pointer;">
+                                        <option value="paid">Paid</option>
+                                        <option value="unpaid">Unpaid</option>
+                                        <option value="partial">Partial Paid</option>
+                                    </select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label for="mEditAmountPaid" style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 2px;">Paid (₹)</label>
+                                    <input type="number" id="mEditAmountPaid" oninput="onModalAmountPaidInput()" min="0" style="width: 100%; padding: 6px 10px; background: rgba(15, 23, 42, 0.6); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-size: 0.8rem; outline: none;">
+                                </div>
+                            </div>
+                            
+                            <!-- Dynamic Payments editor inside Modal Control -->
+                            <div id="mEditPaymentsSection" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 0.68rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Payment Deposits</span>
+                                    <button type="button" onclick="addModalPaymentRow()" style="padding: 2px 6px; font-size: 0.7rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">+ Add</button>
+                                </div>
+                                <div id="mEditPaymentsList" style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;">
+                                    <!-- rows go here -->
+                                </div>
+                            </div>
+                            
+                            <button onclick="updateBillPaymentStatus()" style="margin-top: 8px; padding: 7px 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; color: white; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.78rem; transition: all 0.2s; text-align: center;">💾 Save Payment Status</button>
+                        </div>
+
+                        <!-- Apply GST Download Block -->
+                        <div class="control-box" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 6px;">
+                            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Excel GST Option</span>
+                            
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: #f1f5f9; cursor: pointer; margin: 4px 0; user-select: none;">
+                                <input type="checkbox" id="mApplyGstDownload" onchange="toggleGstDownloadInputs()" style="cursor: pointer; width: 15px; height: 15px;">
+                                Apply 5% GST on Excel
+                            </label>
+                            
+                            <div id="mGstDownloadDetails" style="display: none; flex-direction: column; gap: 6px;">
+                                <div>
+                                    <label for="mGstFirmName" style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 2px;">Firm / Customer Name</label>
+                                    <input type="text" id="mGstFirmName" style="width: 100%; padding: 5px 8px; background: rgba(15, 23, 42, 0.6); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-size: 0.78rem; outline: none;">
+                                </div>
+                                <div>
+                                    <label for="mGstNumber" style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 2px;">GSTIN / GST No</label>
+                                    <input type="text" id="mGstNumber" placeholder="e.g. 07AAAAA1111A1Z1" style="width: 100%; padding: 5px 8px; background: rgba(15, 23, 42, 0.6); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-size: 0.78rem; outline: none;">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-download-bill" onclick="downloadSingleBillExcel()">🟢 Download Bill Excel</button>
+                <button class="btn-modal-close" onclick="closeViewBillModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const db = firebaseDb;
+        let allBills = {};
+        let allCustomers = {};
+        let currentTab = 'invoices';
+        let sortColumn = null;
+        let sortDirection = 'asc';
+
+        let filteredRows = [];
+
+        // Real-time synchronization
+        if (db) {
+            let initialLoad = true;
+            db.ref('bills').on('value', snap => {
+                allBills = snap.val() || {};
+                renderSpreadsheet();
+                
+                // If a bill is currently being viewed, refresh its details dynamically
+                if (activeViewBillId && allBills[activeViewBillId] && document.getElementById('viewBillModal').classList.contains('open')) {
+                    viewBillDetails(activeViewBillId);
+                }
+                
+                if (initialLoad) {
+                    initialLoad = false;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    
+                    const tabParam = urlParams.get('tab');
+                    if (tabParam) {
+                        switchTab(tabParam);
+                    }
+                    
+                    const searchParam = urlParams.get('search');
+                    if (searchParam) {
+                        document.getElementById('excelSearch').value = searchParam;
+                        renderSpreadsheet();
+                    }
+
+                    const viewId = urlParams.get('view');
+                    if (viewId) {
+                        let targetKey = null;
+                        if (allBills[viewId]) {
+                            targetKey = viewId;
+                        } else {
+                            targetKey = Object.keys(allBills).find(k => allBills[k].invoiceNo === viewId);
+                        }
+                        
+                        if (targetKey) {
+                            viewBillDetails(targetKey);
+                        }
+                    }
+                }
+            });
+
+            db.ref('customers').on('value', snap => {
+                allCustomers = snap.val() || {};
+                if (currentTab === 'customers') {
+                    renderSpreadsheet();
+                }
+            });
+        } else {
+            showToast("Database connection not initialized.", "error");
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const index = tab === 'invoices' ? 0 : (tab === 'customers' ? 1 : 2);
+            document.querySelectorAll('.tab-btn')[index].classList.add('active');
+
+            const statusFilter = document.getElementById('statusFilter');
+            if (tab === 'customers') {
+                statusFilter.style.display = 'none';
+            } else {
+                statusFilter.style.display = 'block';
+            }
+
+            // Reset sorting
+            sortColumn = null;
+            sortDirection = 'asc';
+
+            renderSpreadsheet();
+        }
+
+        function handleFilterChange() {
+            renderSpreadsheet();
+        }
+
+        function getFilteredData() {
+            const searchVal = document.getElementById('excelSearch').value.toLowerCase().trim();
+            const statusVal = document.getElementById('statusFilter').value;
+
+            let rows = [];
+
+            if (currentTab === 'invoices') {
+                rows = Object.entries(allBills).map(([key, b]) => ({
+                    id: key,
+                    invoiceNo: b.invoiceNo || 'N/A',
+                    date: b.createdAt ? new Date(b.createdAt).toLocaleDateString() : 'N/A',
+                    customerName: b.customerName || 'N/A',
+                    customerPhone: b.customerPhone || 'N/A',
+                    gstType: (b.gstType || 'non-gst').toUpperCase(),
+                    grandTotal: parseFloat(b.grandTotal) || 0,
+                    amountPaid: parseFloat(b.amountPaid) || 0,
+                    amountPending: parseFloat(b.amountPending) || 0,
+                    status: b.status || 'unpaid',
+                    notes: b.notes || '',
+                    rawDate: b.createdAt ? new Date(b.createdAt).getTime() : 0
+                }));
+
+                // Apply filters
+                rows = rows.filter(r => {
+                    const matchesSearch = r.invoiceNo.toLowerCase().includes(searchVal) ||
+                                          r.customerName.toLowerCase().includes(searchVal) ||
+                                          r.customerPhone.includes(searchVal) ||
+                                          r.notes.toLowerCase().includes(searchVal);
+                    
+                    const matchesStatus = statusVal === 'all' || r.status === statusVal;
+
+                    return matchesSearch && matchesStatus;
+                });
+            } else if (currentTab === 'customers') {
+                rows = Object.entries(allCustomers).map(([phone, c]) => ({
+                    phone: phone,
+                    name: c.name || 'N/A',
+                    address: c.address || 'N/A',
+                    gstin: c.gst || 'N/A',
+                    totalBusiness: parseFloat(c.totalBusiness) || 0,
+                    remainingBalance: parseFloat(c.remainingBalance) || 0,
+                    lastBillingDate: c.lastBillingDate ? new Date(c.lastBillingDate).toLocaleDateString() : 'N/A',
+                    rawDate: c.lastBillingDate ? new Date(c.lastBillingDate).getTime() : 0
+                }));
+
+                rows = rows.filter(r => {
+                    return r.name.toLowerCase().includes(searchVal) ||
+                           r.phone.includes(searchVal) ||
+                           r.address.toLowerCase().includes(searchVal) ||
+                           r.gstin.toLowerCase().includes(searchVal);
+                });
+            } else if (currentTab === 'items') {
+                // Flatten items
+                Object.entries(allBills).forEach(([key, b]) => {
+                    if (b.items && b.items.length > 0) {
+                        b.items.forEach(item => {
+                            const itemDate = item.date ? new Date(item.date).toLocaleDateString() : (b.createdAt ? new Date(b.createdAt).toLocaleDateString() : 'N/A');
+                            const rawDate = item.date ? new Date(item.date).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                            rows.push({
+                                invoiceNo: b.invoiceNo || 'N/A',
+                                date: itemDate,
+                                customerName: b.customerName || 'N/A',
+                                customerPhone: b.customerPhone || 'N/A',
+                                productName: item.productName || 'Order Item',
+                                quantity: parseFloat(item.quantity) || 0,
+                                rate: parseFloat(item.rate) || 0,
+                                total: parseFloat(item.total) || 0,
+                                status: b.status || 'unpaid',
+                                rawDate: rawDate
+                            });
+                        });
+                    }
+                });
+
+                rows = rows.filter(r => {
+                    const matchesSearch = r.invoiceNo.toLowerCase().includes(searchVal) ||
+                                          r.customerName.toLowerCase().includes(searchVal) ||
+                                          r.customerPhone.includes(searchVal) ||
+                                          r.productName.toLowerCase().includes(searchVal);
+
+                    const matchesStatus = statusVal === 'all' || r.status === statusVal;
+
+                    return matchesSearch && matchesStatus;
+                });
+            }
+
+            // Apply sorting
+            if (sortColumn) {
+                rows.sort((a, b) => {
+                    let valA = a[sortColumn];
+                    let valB = b[sortColumn];
+
+                    if (sortColumn === 'date' || sortColumn === 'lastBillingDate') {
+                        valA = a.rawDate;
+                        valB = b.rawDate;
+                    }
+
+                    if (typeof valA === 'string') {
+                        return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    } else {
+                        return sortDirection === 'asc' ? valA - valB : valB - valA;
+                    }
+                });
+            }
+
+            return rows;
+        }
+
+        function renderSpreadsheet() {
+            filteredRows = getFilteredData();
+
+            const head = document.getElementById('tableHead');
+            const body = document.getElementById('tableBody');
+            const summary = document.getElementById('summaryBar');
+
+            head.innerHTML = "";
+            body.innerHTML = "";
+            summary.innerHTML = "";
+
+            if (currentTab === 'invoices') {
+                // Table Head
+                head.innerHTML = `
+                    <tr>
+                        <th onclick="handleSort('invoiceNo')">Invoice No</th>
+                        <th onclick="handleSort('date')">Date</th>
+                        <th onclick="handleSort('customerName')">Customer Name</th>
+                        <th onclick="handleSort('customerPhone')">Phone</th>
+                        <th onclick="handleSort('gstType')">Billing Type</th>
+                        <th onclick="handleSort('grandTotal')">Grand Total</th>
+                        <th onclick="handleSort('amountPaid')">Amt Paid</th>
+                        <th onclick="handleSort('amountPending')">Amt Pending</th>
+                        <th onclick="handleSort('status')">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                `;
+
+                // Set sorted indicators
+                updateSortClass();
+
+                // Table Body
+                if (filteredRows.length === 0) {
+                    body.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 24px; color: var(--muted);">No invoices matches the search criteria.</td></tr>`;
+                } else {
+                    filteredRows.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.style.cursor = 'pointer';
+                        tr.title = "Click to view bill details";
+                        tr.onclick = () => {
+                            viewBillDetails(r.id);
+                        };
+                        tr.innerHTML = `
+                            <td><strong>${r.invoiceNo}</strong></td>
+                            <td>${r.date}</td>
+                            <td>${r.customerName}</td>
+                            <td>${r.customerPhone}</td>
+                            <td>${r.gstType}</td>
+                            <td>₹${r.grandTotal.toFixed(2)}</td>
+                            <td>₹${r.amountPaid.toFixed(2)}</td>
+                            <td style="color:${r.amountPending > 0 ? 'var(--danger)' : 'var(--muted)'}">₹${r.amountPending.toFixed(2)}</td>
+                            <td><span class="badge ${r.status}">${r.status}</span></td>
+                            <td>
+                                <button class="btn-view" onclick="event.stopPropagation(); viewBillDetails('${r.id}')">👁️ View Bill</button>
+                            </td>
+                        `;
+                        body.appendChild(tr);
+                    });
+                }
+
+                // Summary
+                const totalSales = filteredRows.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.grandTotal : sum, 0);
+                const totalPaid = filteredRows.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.amountPaid : sum, 0);
+                const totalOutstanding = filteredRows.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.amountPending : sum, 0);
+
+                summary.innerHTML = `
+                    <div class="summary-item">Sales: <strong style="color:var(--success)">₹${totalSales.toFixed(2)}</strong></div>
+                    <div class="summary-item">Received: <strong style="color:#60a5fa">₹${totalPaid.toFixed(2)}</strong></div>
+                    <div class="summary-item">Outstanding: <strong style="color:var(--danger)">₹${totalOutstanding.toFixed(2)}</strong></div>
+                    <div class="summary-item" style="border-left: 1px solid rgba(255,255,255,0.1); padding-left:20px;">Count: <strong>${filteredRows.length}</strong></div>
+                `;
+
+            } else if (currentTab === 'customers') {
+                // Table Head
+                head.innerHTML = `
+                    <tr>
+                        <th onclick="handleSort('name')">Customer Name</th>
+                        <th onclick="handleSort('phone')">Phone</th>
+                        <th onclick="handleSort('address')">Shipping Address</th>
+                        <th onclick="handleSort('gstin')">GSTIN</th>
+                        <th onclick="handleSort('totalBusiness')">Total Business Done</th>
+                        <th onclick="handleSort('remainingBalance')">Outstanding Balance</th>
+                        <th onclick="handleSort('lastBillingDate')">Last Billing Date</th>
+                        <th>Actions</th>
+                    </tr>
+                `;
+
+                updateSortClass();
+
+                // Table Body
+                if (filteredRows.length === 0) {
+                    body.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--muted);">No customers found.</td></tr>`;
+                } else {
+                    filteredRows.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${r.name}</strong></td>
+                            <td>${r.phone}</td>
+                            <td>${r.address}</td>
+                            <td>${r.gstin}</td>
+                            <td style="color:var(--success)">₹${r.totalBusiness.toFixed(2)}</td>
+                            <td style="color:${r.remainingBalance > 0 ? 'var(--danger)' : 'var(--muted)'}">₹${r.remainingBalance.toFixed(2)}</td>
+                            <td>${r.lastBillingDate}</td>
+                            <td>
+                                <button class="btn-view" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;" onmouseover="this.style.background='rgba(239, 68, 68, 0.3)'; this.style.borderColor='rgba(239, 68, 68, 0.5)'; this.style.color='white';" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'; this.style.borderColor='rgba(239, 68, 68, 0.3)'; this.style.color='#fca5a5';" onclick="deleteCustomerAccountFromViewer('${r.phone}')">🗑️ Delete</button>
+                            </td>
+                        `;
+                        body.appendChild(tr);
+                    });
+                }
+
+                // Summary
+                const totalOutstanding = filteredRows.reduce((sum, r) => sum + r.remainingBalance, 0);
+                const totalSales = filteredRows.reduce((sum, r) => sum + r.totalBusiness, 0);
+
+                summary.innerHTML = `
+                    <div class="summary-item">Total Directory Business: <strong style="color:var(--success)">₹${totalSales.toFixed(2)}</strong></div>
+                    <div class="summary-item">Total Outstanding: <strong style="color:var(--danger)">₹${totalOutstanding.toFixed(2)}</strong></div>
+                    <div class="summary-item" style="border-left: 1px solid rgba(255,255,255,0.1); padding-left:20px;">Directory Customers: <strong>${filteredRows.length}</strong></div>
+                `;
+
+            } else if (currentTab === 'items') {
+                // Table Head
+                head.innerHTML = `
+                    <tr>
+                        <th onclick="handleSort('invoiceNo')">Invoice No</th>
+                        <th onclick="handleSort('date')">Date</th>
+                        <th onclick="handleSort('customerName')">Customer Name</th>
+                        <th onclick="handleSort('customerPhone')">Phone</th>
+                        <th onclick="handleSort('productName')">Product / Item Name</th>
+                        <th onclick="handleSort('quantity')">Quantity</th>
+                        <th onclick="handleSort('rate')">Rate</th>
+                        <th onclick="handleSort('total')">Total</th>
+                        <th onclick="handleSort('status')">Invoice Status</th>
+                    </tr>
+                `;
+
+                updateSortClass();
+
+                // Table Body
+                if (filteredRows.length === 0) {
+                    body.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--muted);">No items matched search.</td></tr>`;
+                } else {
+                    filteredRows.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${r.invoiceNo}</strong></td>
+                            <td>${r.date}</td>
+                            <td>${r.customerName}</td>
+                            <td>${r.customerPhone}</td>
+                            <td>${r.productName}</td>
+                            <td>${r.quantity}</td>
+                            <td>₹${r.rate.toFixed(2)}</td>
+                            <td><strong>₹${r.total.toFixed(2)}</strong></td>
+                            <td><span class="badge ${r.status}">${r.status}</span></td>
+                        `;
+                        body.appendChild(tr);
+                    });
+                }
+
+                // Summary
+                const totalItemsQty = filteredRows.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.quantity : sum, 0);
+                const totalItemsAmount = filteredRows.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.total : sum, 0);
+
+                summary.innerHTML = `
+                    <div class="summary-item">Total Items Sold: <strong style="color:#60a5fa">${totalItemsQty} qty</strong></div>
+                    <div class="summary-item">Total Value: <strong style="color:var(--success)">₹${totalItemsAmount.toFixed(2)}</strong></div>
+                    <div class="summary-item" style="border-left: 1px solid rgba(255,255,255,0.1); padding-left:20px;">Rows: <strong>${filteredRows.length}</strong></div>
+                `;
+            }
+        }
+
+        function handleSort(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+            renderSpreadsheet();
+        }
+
+        function updateSortClass() {
+            setTimeout(() => {
+                const ths = document.querySelectorAll('.excel-table th');
+                ths.forEach(th => {
+                    th.classList.remove('sorted-asc', 'sorted-desc');
+                    const onclickAttr = th.getAttribute('onclick');
+                    if (onclickAttr && onclickAttr.includes(`'${sortColumn}'`)) {
+                        th.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                    }
+                });
+            }, 50);
+        }
+
+        function exportFilteredDataToExcel() {
+            if (filteredRows.length === 0) {
+                showToast("No data to export.", "error");
+                return;
+            }
+
+            let dataToExport = [];
+            let sheetName = "";
+
+            if (currentTab === 'invoices') {
+                sheetName = "Invoices Database";
+                dataToExport = filteredRows.map(r => ({
+                    "Invoice No": r.invoiceNo,
+                    "Date": r.date,
+                    "Customer Name": r.customerName,
+                    "Customer Phone": r.customerPhone,
+                    "Billing Type": r.gstType,
+                    "Grand Total (INR)": r.grandTotal,
+                    "Amount Paid (INR)": r.amountPaid,
+                    "Amount Pending (INR)": r.amountPending,
+                    "Payment Status": r.status.toUpperCase(),
+                    "Notes": r.notes
+                }));
+            } else if (currentTab === 'customers') {
+                sheetName = "Customers Ledger";
+                dataToExport = filteredRows.map(r => ({
+                    "Customer Name": r.name,
+                    "Customer Phone": r.phone,
+                    "Shipping Address": r.address,
+                    "GSTIN": r.gstin,
+                    "Total Sales Vol (INR)": r.totalBusiness,
+                    "Outstanding Balance (INR)": r.remainingBalance,
+                    "Last Transaction Date": r.lastBillingDate
+                }));
+            } else if (currentTab === 'items') {
+                sheetName = "Line Items Details";
+                dataToExport = filteredRows.map(r => ({
+                    "Invoice No": r.invoiceNo,
+                    "Date": r.date,
+                    "Customer Name": r.customerName,
+                    "Customer Phone": r.customerPhone,
+                    "Product / Item Name": r.productName,
+                    "Quantity": r.quantity,
+                    "Rate (INR)": r.rate,
+                    "Total Price (INR)": r.total,
+                    "Invoice Status": r.status.toUpperCase()
+                }));
+            }
+
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            
+            const filename = `${sheetName.replace(/\s+/g, '_')}_Filtered_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            showToast("Spreadsheet downloaded successfully!", "success");
+        }
+
+        let activeViewBillId = null;
+        let modalPayments = [];
+
+        function viewBillDetails(billId) {
+            const bill = allBills[billId];
+            if (!bill) {
+                showToast("Bill not found", "error");
+                return;
+            }
+            activeViewBillId = billId;
+
+            document.getElementById('mInvoiceNo').textContent = bill.invoiceNo || 'N/A';
+            document.getElementById('mCustomerName').textContent = bill.customerName || 'N/A';
+            document.getElementById('mCustomerPhone').textContent = bill.customerPhone || 'N/A';
+            document.getElementById('mInvoiceDate').textContent = bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() + ' ' + new Date(bill.createdAt).toLocaleTimeString() : 'N/A';
+            
+            const statusBadge = document.getElementById('mStatusBadge');
+            statusBadge.textContent = bill.status || 'unpaid';
+            statusBadge.className = 'badge ' + (bill.status || 'unpaid');
+
+            document.getElementById('mCustomerAddress').textContent = bill.customerAddress || 'N/A';
+            document.getElementById('mCustomerGst').textContent = bill.customerGst || 'N/A';
+
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = "";
+
+            const items = bill.items || [];
+            const sortedItems = [...items].sort((a, b) => {
+                const tA = new Date(a.date || bill.createdAt).getTime();
+                const tB = new Date(b.date || bill.createdAt).getTime();
+                const dateA = isNaN(tA) ? 0 : tA;
+                const dateB = isNaN(tB) ? 0 : tB;
+                return dateA - dateB;
+            });
+
+            if (sortedItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 12px;">No items in this invoice.</td></tr>`;
+            } else {
+                sortedItems.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const itemDate = item.date ? new Date(item.date).toLocaleDateString() : (bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() : 'N/A');
+                    const qty = parseFloat(item.quantity) || 0;
+                    const rate = parseFloat(item.rate) || 0;
+                    const total = parseFloat(item.total) || (qty * rate);
+                    tr.innerHTML = `
+                        <td>${itemDate}</td>
+                        <td><strong>${item.productName || 'Order Item'}</strong></td>
+                        <td>${qty}</td>
+                        <td>₹${rate.toFixed(2)}</td>
+                        <td><strong>₹${total.toFixed(2)}</strong></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('mSubtotal').textContent = '₹' + (parseFloat(bill.subtotal) || 0).toFixed(2);
+            
+            const gstRow = document.getElementById('mGstRow');
+            const gstAmountEl = document.getElementById('mGstAmount');
+            const gstLabelEl = document.getElementById('mGstLabel');
+            const isGst = bill.isGstBill || bill.gstType === 'gst' || bill.gstType === 'cgst-sgst' || bill.gstType === 'igst';
+            if (isGst && (parseFloat(bill.gstAmount) > 0 || parseFloat(bill.gstPercent) > 0)) {
+                gstRow.style.display = 'flex';
+                const labelText = (bill.gstType === 'cgst-sgst' ? 'CGST + SGST' : (bill.gstType === 'igst' ? 'IGST' : 'GST'));
+                gstLabelEl.textContent = `${labelText} (${bill.gstPercent || 18}%):`;
+                gstAmountEl.textContent = '₹' + (parseFloat(bill.gstAmount) || 0).toFixed(2);
+            } else {
+                gstRow.style.display = 'none';
+            }
+
+            const extraRow = document.getElementById('mExtraRow');
+            const extraAmountEl = document.getElementById('mExtraAmount');
+            if (parseFloat(bill.extraCharges) > 0) {
+                extraRow.style.display = 'flex';
+                extraAmountEl.textContent = '₹' + parseFloat(bill.extraCharges).toFixed(2);
+            } else {
+                extraRow.style.display = 'none';
+            }
+
+            const discountRow = document.getElementById('mDiscountRow');
+            const discountAmountEl = document.getElementById('mDiscountAmount');
+            if (parseFloat(bill.discount) > 0) {
+                discountRow.style.display = 'flex';
+                discountAmountEl.textContent = '₹' + parseFloat(bill.discount).toFixed(2);
+            } else {
+                discountRow.style.display = 'none';
+            }
+
+            document.getElementById('mGrandTotal').textContent = '₹' + (parseFloat(bill.grandTotal) || 0).toFixed(2);
+            document.getElementById('mAmountPaid').textContent = '₹' + (parseFloat(bill.amountPaid) || 0).toFixed(2);
+            document.getElementById('mAmountPending').textContent = '₹' + (parseFloat(bill.amountPending) || 0).toFixed(2);
+
+            // Populate static list of payments
+            const paymentsListEl = document.getElementById('mPaymentsList');
+            const paymentsSectionEl = document.getElementById('mPaymentsSection');
+            if (paymentsListEl && paymentsSectionEl) {
+                paymentsListEl.innerHTML = '';
+                const pList = bill.payments && Array.isArray(bill.payments) ? bill.payments : [
+                    { amount: parseFloat(bill.amountPaid) || 0, date: bill.paymentTimestamp ? bill.paymentTimestamp.split('T')[0] : (bill.createdAt ? bill.createdAt.split('T')[0] : 'N/A') }
+                ];
+                
+                let hasActualPayment = pList.some(pm => pm.amount > 0);
+                if (hasActualPayment) {
+                    paymentsSectionEl.style.display = 'block';
+                    pList.forEach(pm => {
+                        if (pm.amount > 0) {
+                            const div = document.createElement('div');
+                            div.style.display = 'flex';
+                            div.style.justifyContent = 'space-between';
+                            div.style.color = '#e2e8f0';
+                            div.innerHTML = `<span>📅 ${pm.date}</span> <strong>₹${(pm.amount || 0).toFixed(2)}</strong>`;
+                            paymentsListEl.appendChild(div);
+                        }
+                    });
+                } else {
+                    paymentsSectionEl.style.display = 'none';
+                }
+            }
+
+            // Populate modifiers
+            document.getElementById('mEditStatus').value = bill.status || 'unpaid';
+            document.getElementById('mEditAmountPaid').value = bill.amountPaid || 0;
+            document.getElementById('mApplyGstDownload').checked = false;
+            document.getElementById('mGstDownloadDetails').style.display = 'none';
+            document.getElementById('mGstFirmName').value = bill.customerName || '';
+            document.getElementById('mGstNumber').value = bill.customerGst || '';
+
+            // Load payments for editor
+            const today = new Date().toLocaleDateString('en-CA');
+            if (bill.payments && Array.isArray(bill.payments)) {
+                modalPayments = JSON.parse(JSON.stringify(bill.payments));
+            } else {
+                const fallbackDate = bill.paymentTimestamp ? bill.paymentTimestamp.split('T')[0] : (bill.createdAt ? bill.createdAt.split('T')[0] : today);
+                modalPayments = [{ amount: parseFloat(bill.amountPaid) || 0, date: fallbackDate }];
+            }
+            renderModalPaymentsEditor();
+
+            document.getElementById('viewBillModal').classList.add('open');
+        }
+
+        function closeViewBillModal() {
+            document.getElementById('viewBillModal').classList.remove('open');
+            activeViewBillId = null;
+        }
+
+        function toggleGstDownloadInputs() {
+            const applyGst = document.getElementById('mApplyGstDownload').checked;
+            document.getElementById('mGstDownloadDetails').style.display = applyGst ? 'flex' : 'none';
+        }
+
+        function renderModalPaymentsEditor() {
+            const container = document.getElementById('mEditPaymentsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const amountPaidInput = document.getElementById('mEditAmountPaid');
+            amountPaidInput.readOnly = modalPayments.length > 1;
+
+            modalPayments.forEach((pm, index) => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.gap = '6px';
+                row.style.alignItems = 'center';
+                row.style.marginBottom = '4px';
+
+                const amtInp = document.createElement('input');
+                amtInp.type = 'number';
+                amtInp.value = pm.amount;
+                amtInp.min = '0';
+                amtInp.step = '0.01';
+                amtInp.style.flex = '1';
+                amtInp.style.padding = '4px 6px';
+                amtInp.style.background = 'rgba(15, 23, 42, 0.6)';
+                amtInp.style.border = '1px solid rgba(255,255,255,0.1)';
+                amtInp.style.borderRadius = '4px';
+                amtInp.style.color = '#fff';
+                amtInp.style.fontSize = '0.78rem';
+                amtInp.oninput = (e) => {
+                    modalPayments[index].amount = parseFloat(e.target.value) || 0;
+                    updateMainAmountFromModalDeposits();
+                };
+
+                const dateInp = document.createElement('input');
+                dateInp.type = 'date';
+                dateInp.value = pm.date;
+                dateInp.style.flex = '1.2';
+                dateInp.style.padding = '4px 6px';
+                dateInp.style.background = 'rgba(15, 23, 42, 0.6)';
+                dateInp.style.border = '1px solid rgba(255,255,255,0.1)';
+                dateInp.style.borderRadius = '4px';
+                dateInp.style.color = '#fff';
+                dateInp.style.fontSize = '0.78rem';
+                dateInp.onchange = (e) => {
+                    modalPayments[index].date = e.target.value;
+                };
+
+                row.appendChild(amtInp);
+                row.appendChild(dateInp);
+
+                if (modalPayments.length > 1) {
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.innerHTML = '🗑️';
+                    delBtn.style.background = 'none';
+                    delBtn.style.border = 'none';
+                    delBtn.style.cursor = 'pointer';
+                    delBtn.style.padding = '2px';
+                    delBtn.onclick = () => {
+                        modalPayments.splice(index, 1);
+                        renderModalPaymentsEditor();
+                        updateMainAmountFromModalDeposits();
+                    };
+                    row.appendChild(delBtn);
+                }
+
+                container.appendChild(row);
+            });
+        }
+
+        function addModalPaymentRow() {
+            const today = new Date().toLocaleDateString('en-CA');
+            modalPayments.push({ amount: 0, date: today });
+            renderModalPaymentsEditor();
+            updateMainAmountFromModalDeposits();
+        }
+
+        function updateMainAmountFromModalDeposits() {
+            const sum = modalPayments.reduce((acc, p) => acc + p.amount, 0);
+            document.getElementById('mEditAmountPaid').value = sum;
+            
+            // Sync status select box
+            const bill = allBills[activeViewBillId];
+            if (!bill) return;
+            const editStatus = document.getElementById('mEditStatus');
+            const grandTotal = parseFloat(bill.grandTotal) || 0;
+            if (sum >= grandTotal) {
+                editStatus.value = 'paid';
+            } else if (sum === 0) {
+                editStatus.value = 'unpaid';
+            } else {
+                editStatus.value = 'partial';
+            }
+        }
+
+        function onModalStatusChange() {
+            const status = document.getElementById('mEditStatus').value;
+            const amountPaidInput = document.getElementById('mEditAmountPaid');
+            const bill = allBills[activeViewBillId];
+            if (!bill) return;
+
+            if (status === 'paid') {
+                amountPaidInput.value = bill.grandTotal || 0;
+            } else if (status === 'unpaid') {
+                amountPaidInput.value = 0;
+            }
+
+            // Sync to modalPayments if it has <= 1 elements
+            const paid = parseFloat(amountPaidInput.value) || 0;
+            const today = new Date().toLocaleDateString('en-CA');
+            if (modalPayments.length <= 1) {
+                if (modalPayments.length === 0) {
+                    modalPayments.push({ amount: paid, date: today });
+                } else {
+                    modalPayments[0].amount = paid;
+                }
+                renderModalPaymentsEditor();
+            }
+        }
+
+        function onModalAmountPaidInput() {
+            const amountPaid = parseFloat(document.getElementById('mEditAmountPaid').value) || 0;
+            const editStatus = document.getElementById('mEditStatus');
+            const bill = allBills[activeViewBillId];
+            if (!bill) return;
+
+            if (amountPaid >= bill.grandTotal) {
+                editStatus.value = 'paid';
+            } else if (amountPaid === 0) {
+                editStatus.value = 'unpaid';
+            } else {
+                editStatus.value = 'partial';
+            }
+
+            // Sync to modalPayments if it has <= 1 elements
+            const today = new Date().toLocaleDateString('en-CA');
+            if (modalPayments.length <= 1) {
+                if (modalPayments.length === 0) {
+                    modalPayments.push({ amount: amountPaid, date: today });
+                } else {
+                    modalPayments[0].amount = amountPaid;
+                }
+                renderModalPaymentsEditor();
+            }
+        }
+
+        async function updateBillPaymentStatus() {
+            if (!activeViewBillId) return;
+            const bill = allBills[activeViewBillId];
+            if (!bill) return;
+
+            const newStatus = document.getElementById('mEditStatus').value;
+            const newAmountPaid = parseFloat(document.getElementById('mEditAmountPaid').value) || 0;
+            const newAmountPending = Math.max(0, parseFloat(bill.grandTotal || 0) - newAmountPaid);
+            const savedDate = new Date().toISOString();
+
+            // Find latest payment date in modalPayments as the paymentTimestamp
+            let latestPaymentDate = null;
+            if (modalPayments.length > 0) {
+                let latestMs = 0;
+                modalPayments.forEach(pm => {
+                    if (pm.date) {
+                        const ms = new Date(pm.date).getTime();
+                        if (!isNaN(ms) && ms > latestMs) {
+                            latestMs = ms;
+                            latestPaymentDate = new Date(pm.date).toISOString();
+                        }
+                    }
+                });
+            }
+            const paymentTimestamp = latestPaymentDate || (newStatus === 'paid' ? savedDate : (bill.paymentTimestamp || null));
+
+            try {
+                // Update local memory representation immediately for instant UI update
+                if (allBills[activeViewBillId]) {
+                    allBills[activeViewBillId].status = newStatus;
+                    allBills[activeViewBillId].amountPaid = newAmountPaid;
+                    allBills[activeViewBillId].amountPending = newAmountPending;
+                    allBills[activeViewBillId].paymentTimestamp = paymentTimestamp;
+                    allBills[activeViewBillId].payments = JSON.parse(JSON.stringify(modalPayments));
+                    allBills[activeViewBillId].updatedAt = savedDate;
+                }
+                
+                // Refresh modal details and background table instantly
+                viewBillDetails(activeViewBillId);
+                renderSpreadsheet();
+
+                await db.ref('bills/' + activeViewBillId).update({
+                    status: newStatus,
+                    amountPaid: newAmountPaid,
+                    amountPending: newAmountPending,
+                    paymentTimestamp: paymentTimestamp,
+                    payments: modalPayments,
+                    updatedAt: savedDate
+                });
+
+                if (bill.customerPhone) {
+                    await syncCustomerLedgerTotalsInViewer(bill.customerPhone);
+                }
+
+                showToast("Payment status updated successfully!", "success");
+
+            } catch (err) {
+                showToast("Failed to update status: " + err.message, "error");
+            }
+        }
+
+        async function syncCustomerLedgerTotalsInViewer(phone) {
+            if (typeof db === 'undefined' || !db) return;
+            const customerSnap = await db.ref('customers/' + phone).once('value');
+            if (!customerSnap.exists()) return; // Do not recreate deleted customer profiles during ledger recalculations
+
+            const billsSnap = await db.ref('bills').orderByChild('customerPhone').equalTo(phone).once('value');
+            
+            let totalBusiness = 0;
+            let remainingBalance = 0;
+            let lastDate = 0;
+
+            if (billsSnap.exists()) {
+                Object.values(billsSnap.val()).forEach(function(b) {
+                    if (b.status !== 'cancelled') {
+                        totalBusiness += parseFloat(b.grandTotal) || 0;
+                        remainingBalance += parseFloat(b.amountPending) || 0;
+                    }
+                    const bTime = new Date(b.createdAt).getTime();
+                    if (!isNaN(bTime) && bTime > lastDate) {
+                        lastDate = bTime;
+                    }
+                });
+            }
+
+            await db.ref('customers/' + phone).update({
+                totalBusiness: totalBusiness,
+                remainingBalance: remainingBalance,
+                lastBillingDate: lastDate > 0 ? new Date(lastDate).toISOString() : null
+            });
+        }
+
+        async function deleteCustomerAccountFromViewer(phone) {
+            const customer = allCustomers[phone];
+            const name = customer ? (customer.name || phone) : phone;
+            if (confirm(`Are you sure you want to permanently delete the customer account for "${name}" (${phone})? This action cannot be undone. Historical invoices will remain in the database.`)) {
+                try {
+                    await db.ref('customers/' + phone).remove();
+                    showToast(`Customer account for "${name}" deleted successfully.`, "success");
+                } catch (err) {
+                    showToast("Failed to delete customer: " + err.message, "error");
+                }
+            }
+        }
+
+        function downloadSingleBillExcel() {
+            if (!activeViewBillId) return;
+            const bill = allBills[activeViewBillId];
+            if (!bill) return;
+
+            const applyGst = document.getElementById('mApplyGstDownload').checked;
+            const firmName = applyGst ? (document.getElementById('mGstFirmName').value.trim() || bill.customerName || 'N/A') : (bill.customerName || 'N/A');
+            const gstin = applyGst ? (document.getElementById('mGstNumber').value.trim() || bill.customerGst || 'N/A') : (bill.customerGst || 'N/A');
+
+            const sheetData = [];
+
+            sheetData.push(["INVOICE DETAILS", "", "", "", ""]);
+            sheetData.push(["Invoice No:", bill.invoiceNo || 'N/A', "", "Date:", bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() : 'N/A']);
+            sheetData.push(["Customer/Firm Name:", firmName, "", "Phone:", bill.customerPhone || 'N/A']);
+            sheetData.push(["Shipping Address:", bill.customerAddress || 'N/A', "", "GSTIN:", gstin]);
+            sheetData.push(["Payment Status:", (bill.status || 'unpaid').toUpperCase(), "", "", ""]);
+            sheetData.push([]); 
+
+            sheetData.push(["Date", "Product / Item Description", "Quantity", "Rate (INR)", "Total (INR)"]);
+
+            const items = bill.items || [];
+            const sortedItems = [...items].sort((a, b) => {
+                const tA = new Date(a.date || bill.createdAt).getTime();
+                const tB = new Date(b.date || bill.createdAt).getTime();
+                const dateA = isNaN(tA) ? 0 : tA;
+                const dateB = isNaN(tB) ? 0 : tB;
+                return dateA - dateB;
+            });
+
+            sortedItems.forEach(item => {
+                const itemDate = item.date ? new Date(item.date).toLocaleDateString() : (bill.createdAt ? new Date(bill.createdAt).toLocaleDateString() : 'N/A');
+                const qty = parseFloat(item.quantity) || 0;
+                const rate = parseFloat(item.rate) || 0;
+                const total = parseFloat(item.total) || (qty * rate);
+                sheetData.push([
+                    itemDate,
+                    item.productName || 'Order Item',
+                    qty,
+                    rate,
+                    total
+                ]);
+            });
+
+            sheetData.push([]); 
+
+            const subtotal = parseFloat(bill.subtotal || 0);
+            sheetData.push(["", "", "", "Subtotal:", subtotal]);
+
+            let finalGrandTotal = parseFloat(bill.grandTotal || 0);
+
+            if (applyGst) {
+                const gstAmount = subtotal * 0.05;
+                sheetData.push(["", "", "", "GST (5%):", gstAmount]);
+                finalGrandTotal = subtotal + gstAmount + parseFloat(bill.extraCharges || 0) - parseFloat(bill.discount || 0);
+            } else if (bill.gstType === 'gst' && parseFloat(bill.gstAmount) > 0) {
+                sheetData.push(["", "", "", `GST (${bill.gstPercent || 18}%):`, parseFloat(bill.gstAmount)]);
+            }
+
+            if (parseFloat(bill.extraCharges) > 0) {
+                sheetData.push(["", "", "", "Extra Charges:", parseFloat(bill.extraCharges)]);
+            }
+            if (parseFloat(bill.discount) > 0) {
+                sheetData.push(["", "", "", "Discount:", parseFloat(bill.discount)]);
+            }
+
+            sheetData.push(["", "", "", "Grand Total:", finalGrandTotal]);
+            sheetData.push(["", "", "", "Amount Paid:", parseFloat(bill.amountPaid || 0)]);
+            sheetData.push(["", "", "", "Amount Pending:", Math.max(0, finalGrandTotal - parseFloat(bill.amountPaid || 0))]);
+
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            
+            ws['!cols'] = [
+                { wch: 15 }, 
+                { wch: 35 }, 
+                { wch: 10 }, 
+                { wch: 12 }, 
+                { wch: 15 }  
+            ];
+
+            const wb = XLSX.utils.book_new();
+            const filename = `Invoice_${bill.invoiceNo || 'Bill'}_${firmName.replace(/\s+/g, '_')}.xlsx`;
+            XLSX.utils.book_append_sheet(wb, ws, "Invoice Details");
+            XLSX.writeFile(wb, filename);
+
+            showToast("Bill Excel downloaded successfully!", "success");
+        }
+
+        function showToast(msg, type = "info") {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = 'show ' + type;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
