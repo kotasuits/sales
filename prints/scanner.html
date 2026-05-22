@@ -273,15 +273,10 @@
 
     <div class="header">
         <h1>Dispatch Scanner</h1>
-        <p>Scan address label QR codes to save them directly to Google Sheets.</p>
+        <p>Scan address label QR codes to save them directly to Firebase.</p>
     </div>
 
     <div class="glass-card">
-        <div id="setup-warning" class="setup-warning" style="display: none;">
-            <strong>Setup Required:</strong> You need to add your Google Web App URL in the scanner.html file for data
-            saving to work.
-        </div>
-
         <div id="reader"></div>
         <button class="switch-btn" onclick="switchCamera()">🔄 Switch Camera (Front/Back)</button>
     </div>
@@ -292,26 +287,11 @@
     </div>
 
     <script>
-        let GOOGLE_WEB_APP_URL = (typeof appConfig !== 'undefined' && appConfig.googleSheetsUrl) ? appConfig.googleSheetsUrl : "";
-        // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
-
-        // Sync with Firebase centralized configuration URL when synced
-        document.addEventListener('googleSheetsUrlSynced', (e) => {
-            if (e.detail) {
-                GOOGLE_WEB_APP_URL = e.detail;
-                const warning = document.getElementById('setup-warning');
-                if (warning) warning.style.display = 'none';
-            }
-        });
-
         const html5QrCode = new Html5Qrcode("reader");
         let currentFacingMode = "environment";
         let isProcessing = false;
 
         window.onload = function () {
-            if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL.trim() === "") {
-                document.getElementById('setup-warning').style.display = 'block';
-            }
             startScanner();
         }
 
@@ -426,59 +406,47 @@
             if (html5QrCode.getState && html5QrCode.getState() === 2) {
                 html5QrCode.pause(true); // Pause scanning visually
             }
-            showToast('loading', 'Saving to Google Sheets...');
+            showToast('loading', 'Saving to Firebase...');
 
-            // If user hasn't set the URL yet, simulate success for testing
-            if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL.trim() === "") {
+            // Check Firebase is available
+            if (!firebaseDb) {
+                showToast('error', 'Firebase not connected. Check setup.');
                 setTimeout(() => {
-                    showToast('error', 'Google Web App URL not configured!');
-                    setTimeout(() => {
-                        if (html5QrCode.getState && html5QrCode.getState() === 3) {
-                            html5QrCode.resume();
-                        }
-                        isProcessing = false;
-                    }, 2000);
-                }, 1000);
+                    if (html5QrCode.getState && html5QrCode.getState() === 3) html5QrCode.resume();
+                    isProcessing = false;
+                }, 2500);
                 return;
             }
 
-            // Prepare data for standard form POST submission
-            const formData = new URLSearchParams();
-            formData.append("data", JSON.stringify(parsedData));
-
-            fetch(GOOGLE_WEB_APP_URL, {
-                method: "POST",
-                body: formData
+            // Write directly to Firebase Realtime Database under 'dispatches'
+            const newRef = firebaseDb.ref('dispatches').push();
+            newRef.set({
+                id: newRef.key,
+                timestamp: new Date().toISOString(),
+                pkgId: parsedData.pkgId || "",
+                name: parsedData.name || "",
+                phone: parsedData.phone || "",
+                pincode: parsedData.pincode || "",
+                address: parsedData.address || "",
+                rawText: parsedData.rawText || ""
             })
-                .then(response => response.text())
-                .then(text => {
-                    let data;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        throw new Error('Server returned invalid data. Check Google Apps Script.');
+            .then(() => {
+                const pkgSuffix = parsedData.pkgId ? ` [${parsedData.pkgId}]` : '';
+                showToast('success', 'Dispatched & Saved!' + pkgSuffix);
+            })
+            .catch(error => {
+                console.error("Firebase write error:", error);
+                showToast('error', 'Save failed: ' + (error.message || 'Unknown error'));
+            })
+            .finally(() => {
+                // Resume scanning after a delay to prevent accidental double scans
+                setTimeout(() => {
+                    if (html5QrCode.getState && html5QrCode.getState() === 3) {
+                        html5QrCode.resume();
                     }
-                    
-                    if (data.status === "success") {
-                        const pkgSuffix = parsedData.pkgId ? ` [${parsedData.pkgId}]` : '';
-                        showToast('success', 'Successfully Dispatched!' + pkgSuffix);
-                    } else {
-                        showToast('error', 'Error: ' + (data.message || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    showToast('error', 'Network error. Try again.');
-                })
-                .finally(() => {
-                    // Resume scanning after a delay to prevent accidental double scans
-                    setTimeout(() => {
-                        if (html5QrCode.getState && html5QrCode.getState() === 3) {
-                            html5QrCode.resume();
-                        }
-                        isProcessing = false;
-                    }, 2000);
-                });
+                    isProcessing = false;
+                }, 2000);
+            });
         }
 
         function onScanFailure(error) {
