@@ -75,6 +75,22 @@ const firebaseAuth = firebaseInitialized ? firebase.auth() : null;
 const firebaseDb = firebaseInitialized ? firebase.database() : null;
 const firebaseStorage = firebaseInitialized ? firebase.storage() : null;
 
+// Central dynamic configuration sync
+if (firebaseInitialized && firebaseAuth && firebaseDb) {
+    firebaseAuth.onAuthStateChanged((user) => {
+        if (user) {
+            firebaseDb.ref('billingSettings/googleSheetsUrl').on('value', snap => {
+                if (snap.exists() && snap.val()) {
+                    appConfig.googleSheetsUrl = snap.val();
+                    document.dispatchEvent(new CustomEvent('googleSheetsUrlSynced', { detail: snap.val() }));
+                } else if (appConfig.googleSheetsUrl) {
+                    firebaseDb.ref('billingSettings/googleSheetsUrl').set(appConfig.googleSheetsUrl);
+                }
+            });
+        }
+    });
+}
+
 // 3. Helper Functions
 function getLoginUrl() {
     const isSubdir = window.location.pathname.includes('/prints/');
