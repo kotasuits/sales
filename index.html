@@ -4,1564 +4,710 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom PDF & Print Maker</title>
-    <style id="auth-guard-style">body { display: none !important; }</style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <title>Search Tracking Photos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://www.17track.net/externalcall.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-    <script src="../firebase-config.js"></script>
-    <script>enforceAuth();</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Dancing+Script&family=Poppins:wght@400;700&family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Nunito:wght@400;700&family=Oswald:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=PT+Sans:wght@400;700&family=Ubuntu:wght@400;700&family=Source+Sans+3:wght@400;700&family=Noto+Sans:wght@400;700&family=Mulish:wght@400;700&family=Quicksand:wght@400;700&family=Josefin+Sans:wght@400;700&family=Fira+Sans:wght@400;700&family=Exo+2:wght@400;700&family=Barlow:wght@400;700&family=Inter:wght@400;700&family=DM+Sans:wght@400;700&family=Work+Sans:wght@400;700&family=Cabin:wght@400;700&family=Karla:wght@400;700&family=Rubik:wght@400;700&family=Jost:wght@400;700&family=Manrope:wght@400;700&family=Pacifico&family=Lobster&family=Comfortaa:wght@400;700&family=Righteous&family=Caveat:wght@400;700&display=swap"
-        rel="stylesheet">
+    <script src="firebase-config.js"></script>
     <style>
-        *,
-        *::before,
-        *::after {
+        :root {
+            --primary: #6366f1;
+            --pl: #818cf8;
+            --bg: #0a0f1e;
+            --card: rgba(20, 30, 55, .78);
+            --inp: rgba(10, 15, 35, .7);
+            --txt: #f1f5f9;
+            --muted: #94a3b8;
+            --bdr: rgba(255, 255, 255, .09);
+        }
+
+        * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-        }
-
-        :root {
-            --bg: #0a0f1e;
-            --card: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
-            --text: #f1f5f9;
-            --muted: #94a3b8;
+            font-family: 'Outfit', sans-serif;
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
             background: var(--bg);
-            background-image:
-                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59, 130, 246, 0.18), transparent),
-                radial-gradient(ellipse 60% 50% at 80% 110%, rgba(139, 92, 246, 0.18), transparent);
-            color: var(--text);
+            background-image: radial-gradient(ellipse at 80% 0%, rgba(34, 211, 238, .15), transparent 50%), radial-gradient(ellipse at 10% 100%, rgba(99, 102, 241, .15), transparent 50%);
+            color: var(--txt);
             min-height: 100vh;
-            padding: 28px 20px 60px;
+            padding: 28px 16px 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        header {
+        .ph {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 32px;
+            width: 100%;
+            max-width: 940px;
         }
 
-        header h1 {
+        .ph h1 {
             font-size: clamp(1.6rem, 4vw, 2.6rem);
             font-weight: 700;
-            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            background: linear-gradient(135deg, #22d3ee, #818cf8);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 6px;
         }
 
-        header p {
+        .ph p {
             color: var(--muted);
-            font-size: 0.9rem;
-            margin-top: 6px;
         }
 
-        nav {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--bdr);
+            border-radius: 20px;
+            padding: 26px;
+            width: 100%;
+            max-width: 940px;
+            box-shadow: 0 28px 56px rgba(0, 0, 0, .35);
             margin-bottom: 22px;
         }
 
-        nav a {
-            text-decoration: none;
-            color: #93c5fd;
-            font-weight: 600;
-            font-size: 0.9rem;
-            padding: 9px 20px;
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            border-radius: 50px;
-            background: rgba(59, 130, 246, 0.1);
-            backdrop-filter: blur(10px);
-            transition: all 0.25s;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-
-        nav a:hover,
-        nav a.on {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.7);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
-            color: white;
-        }
-
-        .toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 9px;
-            justify-content: center;
-            align-items: center;
-            background: var(--card);
-            border: 1px solid var(--border);
-            backdrop-filter: blur(20px);
-            border-radius: 16px;
-            padding: 16px 20px;
-            margin-bottom: 28px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        .divider {
-            width: 1px;
-            height: 30px;
-            background: var(--border);
-            flex-shrink: 0;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 9px 15px;
-            font-size: 14px;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 600;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: all 0.22s;
-            white-space: nowrap;
-        }
-
-        .btn-default {
-            background: rgba(59, 130, 246, 0.15);
-            color: #93c5fd;
-            border-color: rgba(59, 130, 246, 0.35);
-        }
-
-        .btn-default:hover {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.65);
-            transform: translateY(-1px);
-        }
-
-        .btn-add {
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            color: white;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-add:hover {
-            opacity: 0.88;
-            transform: translateY(-2px);
-        }
-
-        .btn-pdf {
-            background: rgba(16, 185, 129, 0.15);
-            color: #6ee7b7;
-            border-color: rgba(16, 185, 129, 0.35);
-        }
-
-        .btn-pdf:hover {
-            background: rgba(16, 185, 129, 0.3);
-            border-color: rgba(16, 185, 129, 0.65);
-            transform: translateY(-1px);
-        }
-
-        .btn-print {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: white;
-            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-        }
-
-        .btn-print:hover {
-            opacity: 0.88;
-            transform: translateY(-2px);
-        }
-
-        select {
-            padding: 9px 13px;
-            font-size: 14px;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 600;
-            background: rgba(15, 23, 42, 0.85);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            cursor: pointer;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        select:hover {
-            border-color: rgba(59, 130, 246, 0.5);
-        }
-
-        select option {
-            background: #1e293b;
-        }
-
-        .grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: center;
-        }
-
-        .addr-box {
-            width: calc(33.33% - 14px);
-            min-width: 280px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 46px 16px 16px;
+        /* Search */
+        .sbox {
             position: relative;
-            backdrop-filter: blur(16px);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-            transition: border-color 0.25s, box-shadow 0.25s;
-            animation: fadeUp 0.3s ease both;
-        }
-
-        .addr-box:hover {
-            border-color: rgba(59, 130, 246, 0.35);
-            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.12);
-        }
-
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .box-topbar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 42px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-
-        .box-actions {
-            display: flex;
-            gap: 6px;
-        }
-
-        .lock-btn {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 9px;
-            border-radius: 5px;
-            border: 1px solid rgba(239, 68, 68, 0.45);
-            background: rgba(239, 68, 68, 0.12);
-            color: #fca5a5;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .lock-btn:hover {
-            background: rgba(239, 68, 68, 0.28);
-        }
-
-        .del-btn {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 5px;
-            border: 1px solid rgba(100, 116, 139, 0.4);
-            background: rgba(100, 116, 139, 0.1);
-            color: #94a3b8;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .del-btn:hover {
-            background: rgba(239, 68, 68, 0.22);
-            color: #fca5a5;
-            border-color: rgba(239, 68, 68, 0.4);
-        }
-
-        .bill-btn {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 9px;
-            border-radius: 5px;
-            border: 1px solid rgba(16, 185, 129, 0.45);
-            background: rgba(16, 185, 129, 0.12);
-            color: #a7f3d0;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .bill-btn:hover {
-            background: rgba(16, 185, 129, 0.28);
-        }
-
-        /* Quick Bill Modal & Toast Styles */
-        .qb-modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(10, 15, 30, 0.85);
-            backdrop-filter: blur(12px);
-            z-index: 10000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .qb-modal.open {
-            display: flex;
-        }
-
-        .qb-modal-content {
-            background: rgba(30, 41, 59, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 550px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-            display: flex;
-            flex-direction: column;
-            animation: qbFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-
-        @keyframes qbFadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .qb-modal-header {
-            padding: 18px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .qb-modal-header h3 {
-            font-size: 1.25rem;
-            color: #f1f5f9;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .qb-modal-close {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .qb-modal-close:hover {
-            color: #ffffff;
-        }
-
-        .qb-modal-body {
-            padding: 24px;
-            overflow-y: auto;
-        }
-
-        .qb-modal-footer {
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        .qb-form-group {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 16px;
-            position: relative;
-        }
-
-        .qb-form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .qb-form-group label {
-            font-size: 0.78rem;
-            color: #94a3b8;
-            font-weight: 600;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .qb-form-group input,
-        .qb-form-group select,
-        .qb-form-group textarea {
-            padding: 10px 14px;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 0.92rem;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        .qb-form-group input:focus,
-        .qb-form-group select:focus,
-        .qb-form-group textarea:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        .qb-suggestions-box {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            z-index: 10001;
-            max-height: 150px;
-            overflow-y: auto;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-            margin-top: 2px;
-            display: none;
-        }
-
-        .qb-suggestion-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.85rem;
-            transition: background 0.2s;
-        }
-
-        .qb-suggestion-item:hover {
-            background: rgba(59, 130, 246, 0.2);
-        }
-
-        .qb-suggestion-item strong {
-            display: block;
-            color: #f1f5f9;
-        }
-
-        .qb-suggestion-item span {
-            color: #94a3b8;
-            font-size: 0.75rem;
-        }
-
-        .qb-badge {
-            font-size: 0.72rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 700;
-            margin-left: 6px;
-            display: inline-block;
-        }
-        .qb-badge.new {
-            background: rgba(59, 130, 246, 0.15);
-            color: #93c5fd;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-        .qb-badge.existing {
-            background: rgba(16, 185, 129, 0.15);
-            color: #a7f3d0;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        .qb-calc-summary {
-            background: rgba(15, 23, 42, 0.4);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.88rem;
-        }
-
-        .qb-calc-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            color: #94a3b8;
-        }
-
-        .qb-calc-row.total {
-            margin-top: 6px;
-            border-top: 1px dashed rgba(255, 255, 255, 0.1);
-            padding-top: 6px;
-            font-weight: 700;
-            color: #f1f5f9;
-            font-size: 1rem;
-        }
-
-        .qb-checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: #f1f5f9;
-            user-select: none;
-            margin-bottom: 16px;
-        }
-
-        .qb-checkbox-label input {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-        }
-
-        #qbToast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: white;
-            z-index: 11000;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-        }
-
-        #qbToast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        #qbToast.success { background: #10b981; }
-        #qbToast.error { background: #ef4444; }
-        #qbToast.info { background: #3b82f6; }
-
-        .editable {
-            width: 100%;
-            min-height: 110px;
-            max-height: 300px;
-            overflow-y: auto;
-            word-wrap: break-word;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 11px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-family: 'Poppins', sans-serif;
-            outline: none;
-            background: rgba(255, 255, 255, 0.93);
-            color: #111;
-            line-height: 1.65;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .editable:focus {
-            border-color: rgba(59, 130, 246, 0.7);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        .editable[contenteditable="false"] {
-            background: #e2e8f0;
-            color: #64748b;
-        }
-
-        .empty-state {
-            width: 100%;
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--muted);
-        }
-
-        .empty-state .icon {
-            font-size: 3.5rem;
             margin-bottom: 14px;
         }
 
-        @media (max-width: 768px) {
+        .sbox .si {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+
+        .sbox input {
+            width: 100%;
+            background: var(--inp);
+            border: 1.5px solid var(--bdr);
+            border-radius: 13px;
+            padding: 14px 16px 14px 48px;
+            color: var(--txt);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color .25s, box-shadow .25s;
+        }
+
+        .sbox input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .2);
+        }
+
+        .sbox input::placeholder {
+            color: var(--muted);
+        }
+
+        /* Stats */
+        .rstats {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            font-size: .88rem;
+            color: var(--muted);
+            flex-wrap: wrap;
+        }
+
+        .rstats strong {
+            color: var(--pl);
+        }
+
+        .rbadge {
+            background: rgba(99, 102, 241, .15);
+            color: var(--pl);
+            padding: 2px 11px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: .82rem;
+        }
+
+        /* Results grid */
+        #rgrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 18px;
+        }
+
+        .rc {
+            background: rgba(10, 15, 35, .72);
+            border: 1px solid var(--bdr);
+            border-radius: 15px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s, border-color .2s;
+            position: relative;
+        }
+
+        .rc:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 38px rgba(99, 102, 241, .22);
+            border-color: rgba(99, 102, 241, .4);
+        }
+
+        .rc img {
+            width: 100%;
+            height: 175px;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+
+        .rc .ci {
+            padding: 13px 15px;
+        }
+
+        .rc .cn {
+            font-weight: 700;
+            font-size: .95rem;
+            margin-bottom: 5px;
+        }
+
+        .rc .ml {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            background: rgba(99, 102, 241, .12);
+            border: 1px solid rgba(99, 102, 241, .2);
+            color: var(--pl);
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .chip.ph {
+            background: rgba(34, 211, 238, .1);
+            border-color: rgba(34, 211, 238, .25);
+            color: #67e8f9;
+        }
+
+        .chip.dt {
+            background: rgba(255, 255, 255, .05);
+            border-color: var(--bdr);
+            color: var(--muted);
+        }
+
+        .vo {
+            position: absolute;
+            inset: 0;
+            height: 175px;
+            background: rgba(99, 102, 241, 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .25s;
+        }
+
+        .rc:hover .vo {
+            background: rgba(99, 102, 241, .22);
+        }
+
+        .vo span {
+            background: rgba(0, 0, 0, .72);
+            color: #fff;
+            padding: 7px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: .88rem;
+            opacity: 0;
+            transform: scale(.85);
+            transition: opacity .25s, transform .25s;
+        }
+
+        .rc:hover .vo span {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        mark {
+            background: rgba(253, 224, 71, .3);
+            color: #fde047;
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        /* State boxes */
+        .sb {
+            text-align: center;
+            padding: 55px 20px;
+            color: var(--muted);
+        }
+
+        .sb .si2 {
+            font-size: 3.2rem;
+            margin-bottom: 12px;
+        }
+
+        @media(max-width: 600px) {
             body {
-                padding: 14px 12px 50px;
+                padding: 20px 15px;
             }
 
-            .addr-box {
-                width: 100%;
+            .ph h1 {
+                font-size: 2rem;
             }
 
-            .divider {
-                display: none;
+            .card {
+                padding: 18px;
+                border-radius: 16px;
             }
 
-            .btn {
-                padding: 9px 11px;
-                font-size: 13px;
+            #rgrid {
+                grid-template-columns: 1fr;
+                gap: 15px;
             }
 
-            select {
-                font-size: 13px;
-                padding: 8px 10px;
+            .rc img {
+                height: 150px;
+            }
+
+            .vo {
+                height: 150px;
+            }
+
+            .rstats {
+                font-size: 0.8rem;
+            }
+        }
+
+        .sb h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--txt);
+            margin-bottom: 5px;
+        }
+
+        .sb p {
+            font-size: .92rem;
+        }
+
+        /* Modal */
+        #imod {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .94);
+            z-index: 10000;
+            align-items: center;
+            justify-content: flex-start;
+            flex-direction: column;
+            gap: 20px;
+            padding: 50px 20px 30px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        #imod.open {
+            display: flex;
+        }
+
+        #imod .mw {
+            max-width: 94vw;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        #imod .mw img {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 13px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, .6);
+            display: block;
+        }
+
+        .dl-btn-secondary {
+            width: 100%;
+            max-width: 500px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bdr);
+            color: var(--muted);
+            padding: 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .dl-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        #imod .mi {
+            background: rgba(20, 30, 55, .96);
+            border: 1px solid var(--bdr);
+            border-radius: 15px;
+            padding: 16px 22px;
+            max-width: 94vw;
+            width: 500px;
+        }
+
+        .track-input-box {
+            width: 100%;
+            max-width: 500px;
+            padding: 15px 20px;
+            border: 1px solid var(--bdr);
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        #imod .mi .mn {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        #imod .mi .mm {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        #imod .cm {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10005;
+            font-size: 1.5rem;
+            color: #fff;
+            cursor: pointer;
+            background: #ef4444;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        #imod .cm:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
+        .dlbtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff;
+            text-decoration: none;
+            padding: 9px 20px;
+            border-radius: 9px;
+            font-weight: 600;
+            font-size: .88rem;
+            transition: all .2s;
+        }
+
+        .dlbtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 18px rgba(99, 102, 241, .5);
+        }
+
+        @media(max-width:580px) {
+            #rgrid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            #imod .mi,
+            .track-input-box {
+                width: 92vw;
+                padding: 12px 16px;
+            }
+
+            #imod .mw img {
+                max-height: 60vh;
             }
         }
     </style>
 </head>
 
 <body>
-
-    <header>
-        <h1>&#128230; Custom PDF &amp; Print Maker</h1>
-        <p>Create, format and print shipping addresses with auto QR codes</p>
-    </header>
-
-    <nav>
-        <a href="index.html" class="on">📄 Labels</a>
-        <a href="scanner.html">🔍 Scanner</a>
-        <a href="dispatched.html">📋 Dispatched</a>
-        <a href="../uploads.html">📸 Upload Tracking</a>
-        <a href="../search.html">🔎 Search Photos</a>
-        <a href="../billing.html">🧾 Billing</a>
-        <a href="../gst-billing.html">🧾 GST Billing</a>
-        <a href="../customers.html">👤 Customers</a>
-        <a href="../online-excel.html">📊 Online Excel</a>
-        <a href="#" onclick="handleLogout(event)" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.08);">🚪 Logout</a>
-    </nav>
-
-    <div class="toolbar">
-
-        <button class="btn btn-add" onclick="addBox()">&#10133; Add Box</button>
-
-        <div class="divider"></div>
-
-        <select id="fontFamily" onchange="applyFont()">
-            <option value="Poppins" selected>Poppins</option>
-            <option value="Roboto">Roboto</option>
-            <option value="Open Sans">Open Sans</option>
-            <option value="Lato">Lato</option>
-            <option value="Montserrat">Montserrat</option>
-            <option value="Raleway">Raleway</option>
-            <option value="Nunito">Nunito</option>
-            <option value="Oswald">Oswald</option>
-            <option value="Inter">Inter</option>
-            <option value="DM Sans">DM Sans</option>
-            <option value="Work Sans">Work Sans</option>
-            <option value="Barlow">Barlow</option>
-            <option value="Fira Sans">Fira Sans</option>
-            <option value="Exo 2">Exo 2</option>
-            <option value="Cabin">Cabin</option>
-            <option value="Karla">Karla</option>
-            <option value="Rubik">Rubik</option>
-            <option value="Jost">Jost</option>
-            <option value="Manrope">Manrope</option>
-            <option value="Mulish">Mulish</option>
-            <option value="Quicksand">Quicksand</option>
-            <option value="Josefin Sans">Josefin Sans</option>
-            <option value="Ubuntu">Ubuntu</option>
-            <option value="PT Sans">PT Sans</option>
-            <option value="Source Sans 3">Source Sans 3</option>
-            <option value="Noto Sans">Noto Sans</option>
-            <option value="Merriweather">Merriweather</option>
-            <option value="Playfair Display">Playfair Display</option>
-            <option value="Pacifico">Pacifico</option>
-            <option value="Lobster">Lobster</option>
-            <option value="Comfortaa">Comfortaa</option>
-            <option value="Righteous">Righteous</option>
-            <option value="Caveat">Caveat</option>
-            <option value="Dancing Script">Dancing Script</option>
-            <option value="Arial">Arial</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Courier New">Courier New</option>
-            <option value="Segoe UI">Segoe UI</option>
-        </select>
-
-        <select id="pageSize">
-            <option value="A4">A4</option>
-            <option value="A5">A5</option>
-            <option value="A6" selected>A6</option>
-        </select>
-
-        <div class="divider"></div>
-
-        <button class="btn btn-default" onclick="alignAll('left')">Left</button>
-        <button class="btn btn-default" onclick="alignAll('right')">Right</button>
-        <button class="btn btn-default" onclick="changeFontSize(1)">A+</button>
-        <button class="btn btn-default" onclick="changeFontSize(-1)">A-</button>
-        <button class="btn btn-default" onclick="document.execCommand('bold')"><b>Bold</b></button>
-
-        <div class="divider"></div>
-
-        <button class="btn btn-pdf" onclick="generatePDF()">Download PDF</button>
-        <button class="btn btn-print" onclick="printAddresses()">&#128424; Print</button>
-        <button class="btn btn-default" onclick="openQuickBill(null)" style="background: rgba(16, 185, 129, 0.15); color: #a7f3d0; border-color: rgba(16, 185, 129, 0.35);">💵 Quick Bill</button>
-
+    <div class="ph">
+        <h1>🔎 Search Tracking Photos</h1>
+        <p>Find your photo using the last 5 digits of your phone number.</p>
     </div>
 
-    <div id="grid" class="grid">
-        <div class="empty-state" id="emptyState">
-            <div class="icon">&#128221;</div>
-            <p>Click <strong>Add Box</strong> to create your first address card</p>
+    <!-- Search -->
+    <div class="card">
+        <div class="sbox"><span class="si">🔍</span><input type="text" id="si"
+                placeholder="Enter last 5 digits of your phone number..." autocomplete="off" autofocus
+                oninput="doSearch()"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <div class="rstats" id="rstats" style="display:none;">
+            Showing <strong id="rcnt">0</strong> result(s) <span class="rbadge" id="rbadge">0</span>
+        </div>
+        <div id="rc">
+            <div class="sb" id="init-st">
+                <div class="si2">🔎</div>
+                <h3>Start searching</h3>
+                <p>Type the last 5 digits of your phone number above.</p>
+            </div>
+            <div class="sb" id="empty-st" style="display:none;">
+                <div class="si2">😕</div>
+                <h3>No results found</h3>
+                <p>Try a different search term.</p>
+            </div>
+            <div class="sb" id="norec-st" style="display:none;">
+                <div class="si2">📭</div>
+                <h3>No records loaded</h3>
+                <p>Click <strong>Load Records</strong> above first.</p>
+            </div>
+            <div class="sb" id="load-st" style="display:none;">
+                <div class="si2">⏳</div>
+                <h3>Loading from Database…</h3>
+                <p>Please wait.</p>
+            </div>
+            <div id="rgrid"></div>
         </div>
     </div>
+    <div id="imod">
+        <div class="mw">
+            <button class="cm" onclick="closeMod()" title="Close">✕</button>
+            <img id="mimg" src="" alt="">
+        </div>
+
+        <!-- Tracking Area -->
+        <div id="tracking-action-area"
+            style="width:100%; display:flex; flex-direction:column; align-items:center; gap:12px;"></div>
+
+        <div class="track-input-box" id="manual-track-box">
+            <label
+                style="display:block; font-size:.68rem; color:var(--pl); margin-bottom:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px;">🚚
+                Manual Tracking</label>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="manual-awb" placeholder="Type Tracking ID..."
+                    style="flex:1; background:var(--inp); border:1px solid var(--bdr); border-radius:8px; padding:10px; color:#fff; outline:none; font-size:0.9rem;">
+                <button class="dlbtn"
+                    style="margin-top:0; padding:0 20px; background:var(--primary); font-size:0.85rem;"
+                    onclick="startManualTrack()">Track</button>
+            </div>
+        </div>
+
+        <div class="mi">
+            <div class="mn" id="mname"></div>
+            <div class="mm" id="mmeta"></div>
+        </div>
+    </div>
+
 
     <script>
-        function getBillTimestamp(bill) {
-            if (!bill) return 0;
-            var t = bill.createdAt ? new Date(bill.createdAt).getTime() : 0;
-            return isNaN(t) ? 0 : t;
-        }
-        function compareBillEntriesDescending(a, b) {
-            var timeA = getBillTimestamp(a[1]);
-            var timeB = getBillTimestamp(b[1]);
-            if (timeA !== timeB) return timeB - timeA;
-            return b[0].localeCompare(a[0]);
-        }
+        let allRecords = [];
+        let activeFilter = 'all';
 
-        function addBox() {
-            var es = document.getElementById('emptyState');
-            if (es) es.remove();
-            var grid = document.getElementById('grid');
-            var box = document.createElement('div');
-            box.className = 'addr-box';
-            
-            // Generate a short unique package ID
-            var uniqueId = 'PKG-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
-            box.setAttribute('data-unique-id', uniqueId);
-            
-            box.innerHTML =
-                '<div class="box-topbar">' +
-                '<span class="pkg-id-label" style="font-size:11px;font-weight:700;color:#94a3b8;">' + uniqueId + '</span>' +
-                '<div class="box-actions">' +
-                '<button class="lock-btn" onclick="toggleLock(this)">Lock</button>' +
-                '<button class="bill-btn" onclick="openQuickBill(this)">💵 Bill</button>' +
-                '<button class="del-btn"  onclick="removeBox(this)">X</button>' +
-                '</div>' +
-                '</div>' +
-                '<div class="editable" contenteditable="true" style="font-size:16px;font-family:Poppins,sans-serif;"></div>';
-            grid.appendChild(box);
-            box.querySelector('.editable').focus();
+        // State helpers
+        function showState(id) {
+            ['init-st', 'empty-st', 'norec-st', 'load-st'].forEach(s => document.getElementById(s).style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+            document.getElementById('rgrid').innerHTML = '';
+            document.getElementById('rstats').style.display = 'none';
         }
 
-        function removeBox(btn) {
-            var box = btn.closest('.addr-box');
-            box.style.transition = 'all 0.18s';
-            box.style.opacity = '0';
-            box.style.transform = 'scale(0.93)';
-            setTimeout(function () {
-                box.remove();
-                if (!document.querySelector('.addr-box')) {
-                    document.getElementById('grid').innerHTML =
-                        '<div class="empty-state" id="emptyState"><div class="icon">&#128221;</div>' +
-                        '<p>Click <strong>Add Box</strong> to create your first address card</p></div>';
-                }
-            }, 180);
-        }
-
-        function toggleLock(btn) {
-            var ed = btn.closest('.addr-box').querySelector('.editable');
-            var locked = ed.contentEditable === 'false';
-            ed.contentEditable = locked ? 'true' : 'false';
-            btn.textContent = locked ? 'Lock' : 'Unlock';
-        }
-
-        function applyFont() {
-            var font = document.getElementById('fontFamily').value;
-            document.querySelectorAll('.editable').forEach(function (el) {
-                el.style.fontFamily = font;
-            });
-        }
-
-        function alignAll(dir) {
-            document.querySelectorAll('.editable').forEach(function (el) {
-                el.style.textAlign = dir;
-            });
-        }
-
-        function changeFontSize(delta) {
-            document.querySelectorAll('.editable').forEach(function (el) {
-                var cur = parseInt(window.getComputedStyle(el).fontSize);
-                var next = cur + delta;
-                if (next >= 10 && next <= 60) el.style.fontSize = next + 'px';
-            });
-        }
-
-        /* ============================================================
-           PRINT — proven pattern from old working app
-           open window → write header → loop write pages → close → print
-           QR code wrapped in try/catch so long addresses never crash it
-        ============================================================ */
-        async function printAddresses() {
-            var boxes = document.querySelectorAll('.addr-box');
-            var fontFamily = document.getElementById('fontFamily').value;
-            var pageSize = document.getElementById('pageSize').value;
-
-            // Open popup first synchronously to avoid popup blockers
-            var win = window.open('', '', 'width=800,height=900');
-            if (!win) {
-                alert('Popup blocked! Allow popups for this site in the address bar, then try again.');
-                return;
-            }
-
-            // Map page size to physical dimensions for printing to avoid viewport calculation bugs with 100vh/100vw
-            var dimWidth = '105mm';
-            var dimHeight = '147.5mm';
-            if (pageSize === 'A4') {
-                dimWidth = '210mm';
-                dimHeight = '296.5mm';
-            } else if (pageSize === 'A5') {
-                dimWidth = '148mm';
-                dimHeight = '209.5mm';
-            }
-
-            // Write header immediately
-            win.document.write(
-                '<html><head>' +
-                '<title>Print ' + pageSize + '</title>' +
-                '<link href="https://fonts.googleapis.com/css2?family=Dancing+Script&display=swap" rel="stylesheet">' +
-                '<style>' +
-                '@page{size:' + pageSize + ' portrait;margin:0}' +
-                'body{font-family:' + fontFamily + ',sans-serif;margin:0;padding:0}' +
-                '.page{width:' + dimWidth + ';height:' + dimHeight + ';page-break-after:always;box-sizing:border-box;padding:15mm 15mm 25mm 15mm;position:relative;overflow:hidden}' +
-                '.page:last-child{page-break-after:avoid}' +
-                '.body-row{display:flex;justify-content:space-between;align-items:flex-start;padding-top:15px}' +
-                '.content{flex:1;font-size:16px;word-wrap:break-word;padding:10px}' +
-                '.qr-img{margin-left:15px;flex-shrink:0}' +
-                '.note{position:absolute;bottom:10mm;left:0;width:100%;text-align:center;font-size:15px;font-weight:bold}' +
-                '</style></head><body>'
-            );
-
-            // Write each page directly in the loop using async await
-            for (var b = 0; b < boxes.length; b++) {
-                var box = boxes[b];
-                var editable = box.querySelector('.editable');
-                var content = editable.innerHTML.trim();
-                var plainText = editable.innerText.trim();
-                var size = window.getComputedStyle(editable).fontSize;
-                var align = window.getComputedStyle(editable).textAlign;
-
-                if (!content) continue;
-
-                // Extract key fields using robust regex for Indian phone numbers
-                var phoneMatch = plainText.match(/(?:(?:\+|00)?91[\s-]?)?(?:0[\s-]?)?\b(\d{5}[\s-]?\d{5}|\d{10})\b/);
-                var phone = phoneMatch ? phoneMatch[1].replace(/\D/g, '') : '';
-                var pincode = (plainText.match(/\b\d{6}\b/) || [''])[0];
-                var name = '';
-                var textLines = plainText.split('\n');
-                for (var i = 0; i < textLines.length; i++) {
-                    if (textLines[i].trim()) { name = textLines[i].trim(); break; }
-                }
-
-                // Generate QR code — short payload only (name+phone+pincode+uniqueId)
-                // Wrapped in try/catch so a long address NEVER crashes the loop
-                var qrDataUrl = '';
-                var boxUniqueId = box.getAttribute('data-unique-id') || ('PKG-' + Date.now().toString(36).toUpperCase());
+        // Load records
+        async function loadAndSearch() {
+            // Load from cache first
+            const cached = localStorage.getItem('ghRecordsCache');
+            if (cached) {
                 try {
-                    var qrText = (name + ' ' + phone + ' ' + pincode + ' ' + boxUniqueId).trim();
-                    if (qrText.length < 3) qrText = plainText.substring(0, 100);
-                    var qrContainer = document.createElement('div');
-                    new QRCode(qrContainer, {
-                        text: qrText,
-                        width: 256,
-                        height: 256,
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-
-                    // Wait slightly for the canvas to draw, same as PDF logic
-                    await new Promise(function (resolve) { setTimeout(resolve, 60); });
-
-                    var cv = qrContainer.querySelector('canvas');
-                    if (cv) qrDataUrl = cv.toDataURL('image/png');
+                    allRecords = JSON.parse(cached);
+                    showState('init-st');
+                    const q = document.getElementById('si').value.trim();
+                    if (q.length >= 5) doSearch();
                 } catch (e) {
-                    qrDataUrl = ''; // no QR is fine — address still prints
-                }
-
-                // Write this page into the popup
-                win.document.write(
-                    '<div class="page">' +
-                    '<div class="body-row">' +
-                    '<div class="content" style="font-size:' + size + ';text-align:' + align + '">' + content + '</div>' +
-                    (qrDataUrl ? '<div class="qr-img" style="text-align:center;"><img src="' + qrDataUrl + '" width="100" height="100"/><div style="font-size:10px;font-weight:bold;margin-top:4px;color:#444;">' + boxUniqueId + '</div></div>' : '') +
-                    '</div>' +
-                    '<div class="note"><em>&#9888;&#65039; Important : Unboxing video required for any claim.</em></div>' +
-                    '</div>'
-                );
-            }
-
-            // Close and print with a slight delay so QR codes and web fonts can fully load
-            win.document.write('</body></html>');
-            win.document.close();
-
-            setTimeout(function () {
-                win.focus();
-                win.print();
-            }, 500);
-        }
-
-        /* ============================================================
-           PDF DOWNLOAD
-        ============================================================ */
-        async function generatePDF() {
-            var jsPDFLib = window.jspdf;
-            var doc = new jsPDFLib.jsPDF({ format: document.getElementById('pageSize').value.toLowerCase() });
-            var pageSize = document.getElementById('pageSize').value.toLowerCase();
-
-            var colWidth = 180, maxH = 270, qrSz = 35, qrX = 160;
-            if (pageSize === 'a5') { colWidth = 100; maxH = 190; qrSz = 30; qrX = 110; }
-            if (pageSize === 'a6') { colWidth = 65; maxH = 130; qrSz = 25; qrX = 75; }
-
-            var boxes = document.querySelectorAll('.editable');
-            var y = 10;
-
-            for (var b = 0; b < boxes.length; b++) {
-                var text = boxes[b].innerText.trim();
-                if (!text) continue;
-
-                var phoneMatch = text.match(/(?:(?:\+|00)?91[\s-]?)?(?:0[\s-]?)?\b(\d{5}[\s-]?\d{5}|\d{10})\b/);
-                var phone = phoneMatch ? phoneMatch[1].replace(/\D/g, '') : '';
-                var pincode = (text.match(/\b\d{6}\b/) || [''])[0];
-                var name = text.split('\n').find(function (l) { return l.trim(); }) || '';
-                var boxUniqueId = boxes[b].closest('.addr-box')?.getAttribute('data-unique-id') || ('PKG-' + Date.now().toString(36).toUpperCase());
-                var qrUrl = null;
-
-                try {
-                    var qDiv = document.createElement('div');
-                    new QRCode(qDiv, {
-                        text: name + ' ' + phone + ' ' + pincode + ' ' + boxUniqueId,
-                        width: 512, height: 512, correctLevel: QRCode.CorrectLevel.M
-                    });
-                    await new Promise(function (r) { setTimeout(r, 60); });
-                    var cv = qDiv.querySelector('canvas');
-                    if (cv) qrUrl = cv.toDataURL('image/png');
-                } catch (e) { qrUrl = null; }
-
-                var lines = doc.splitTextToSize(text, colWidth);
-                var blockH = Math.max(lines.length * 6, qrSz) + 15;
-
-                if (y + blockH > maxH && y !== 10) { doc.addPage(); y = 10; }
-                
-                doc.setFontSize(14);
-                doc.text(lines, 10, y + 5);
-                if (qrUrl) {
-                    doc.addImage(qrUrl, 'PNG', qrX, y, qrSz, qrSz);
-                    doc.setFontSize(8);
-                    doc.text(boxUniqueId, qrX + (qrSz / 2), y + qrSz + 4, { align: 'center' });
-                }
-                y += blockH;
-            }
-
-            doc.save('addresses.pdf');
-        }
-
-        /* ============================================================
-           QUICK BILLING LOGIC
-        ============================================================ */
-        var qbCustomers = {};
-        var qbSettings = { invoicePrefix: "INV-2026-", nextInvoiceNumber: 1 };
-        var qbActiveBox = null;
-        var qbActiveGst = '';
-
-        // Fetch customers list and settings from Firebase Realtime Database
-        if (typeof firebaseDb !== 'undefined' && firebaseDb) {
-            firebaseDb.ref('customers').on('value', function(snap) {
-                if (snap.exists()) {
-                    qbCustomers = snap.val();
-                } else {
-                    qbCustomers = {};
-                }
-            });
-            firebaseDb.ref('billingSettings').on('value', function(snap) {
-                if (snap.exists()) {
-                    qbSettings = snap.val();
-                }
-            });
-        }
-
-        function openQuickBill(btn) {
-            var phone = '';
-            var name = '';
-            var address = '';
-            var gst = '';
-
-            if (btn) {
-                qbActiveBox = btn.closest('.addr-box').querySelector('.editable');
-                if (qbActiveBox) {
-                    var plainText = qbActiveBox.innerText.trim();
-                    var textLines = plainText.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
-                    name = textLines.length > 0 ? textLines[0] : '';
-                    
-                    var phoneMatch = plainText.match(/(?:(?:\+|00)?91[\s-]?)?(?:0[\s-]?)?\b(\d{5}[\s-]?\d{5}|\d{10})\b/);
-                    phone = phoneMatch ? phoneMatch[1].replace(/\D/g, '') : '';
-                    
-                    var gstMatch = plainText.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}\b/i);
-                    gst = gstMatch ? gstMatch[0].toUpperCase() : '';
-                    
-                    var addrParts = [];
-                    for (var i = 1; i < textLines.length; i++) {
-                        var line = textLines[i];
-                        if (phone && (line.includes(phone) || (phoneMatch && line.includes(phoneMatch[0])))) {
-                            continue;
-                        }
-                        if (gst && (line.includes(gst) || (gstMatch && line.includes(gstMatch[0])))) {
-                            continue;
-                        }
-                        addrParts.push(line);
-                    }
-                    address = addrParts.join(', ');
+                    localStorage.removeItem('ghRecordsCache');
                 }
             } else {
-                qbActiveBox = null;
+                showState('load-st');
             }
-
-            // Populate form
-            document.getElementById('qbCustomerPhone').value = phone;
-            document.getElementById('qbCustomerName').value = name;
-            document.getElementById('qbCustomerAddress').value = address;
-            qbActiveGst = gst;
-            document.getElementById('qbProductName').value = 'NAME';
-            document.getElementById('qbProductQty').value = '1';
-            document.getElementById('qbOrderAmount').value = '';
-            document.getElementById('qbPaymentStatus').value = 'unpaid';
-            document.getElementById('qbAmountPaid').value = '0';
-            document.getElementById('qbNotes').value = '';
-
-            updateQbCustomerBadge(phone);
-            qbRecalc();
-
-            document.getElementById('quickBillModal').classList.add('open');
-        }
-
-        function closeQuickBill() {
-            document.getElementById('quickBillModal').classList.remove('open');
-            qbActiveBox = null;
-        }
-
-        function updateQbCustomerBadge(phone) {
-            var badge = document.getElementById('qb-customer-badge');
-            if (phone && qbCustomers[phone]) {
-                badge.textContent = "Existing Customer";
-                badge.className = "qb-badge existing";
-                
-                var c = qbCustomers[phone];
-                if (c.name) document.getElementById('qbCustomerName').value = c.name;
-                if (c.address) document.getElementById('qbCustomerAddress').value = c.address;
-                if (c.gst) qbActiveGst = c.gst;
-            } else {
-                badge.textContent = "New Customer";
-                badge.className = "qb-badge new";
-            }
-        }
-
-        function handleQbPhoneInput(input) {
-            var val = input.value.replace(/\D/g, '');
-            input.value = val;
-            
-            updateQbCustomerBadge(val);
-            
-            var suggestions = document.getElementById('qb-phone-suggestions');
-            suggestions.innerHTML = '';
-            
-            if (val.length < 3) {
-                suggestions.style.display = 'none';
-                return;
-            }
-
-            var matches = Object.entries(qbCustomers).filter(function(entry) {
-                var phoneKey = entry[0];
-                var cust = entry[1];
-                return phoneKey.includes(val) || (cust.name && cust.name.toLowerCase().includes(val.toLowerCase()));
-            });
-
-            if (matches.length === 0) {
-                suggestions.style.display = 'none';
-                return;
-            }
-
-            matches.forEach(function(entry) {
-                var phoneKey = entry[0];
-                var cust = entry[1];
-                var div = document.createElement('div');
-                div.className = 'qb-suggestion-item';
-                div.innerHTML = '<strong>' + cust.name + '</strong><span>📞 ' + phoneKey + '</span>';
-                div.onclick = function() {
-                    document.getElementById('qbCustomerPhone').value = phoneKey;
-                    document.getElementById('qbCustomerName').value = cust.name;
-                    document.getElementById('qbCustomerAddress').value = cust.address || '';
-                    qbActiveGst = cust.gst || '';
-                    updateQbCustomerBadge(phoneKey);
-                    suggestions.style.display = 'none';
-                    showQbToast("Customer auto-filled.", "info");
-                };
-                suggestions.appendChild(div);
-            });
-            suggestions.style.display = 'block';
-        }
-
-        function handleQbNameInput(input) {
-            var val = input.value.trim();
-            var suggestions = document.getElementById('qb-name-suggestions');
-            suggestions.innerHTML = '';
-            
-            if (val.length < 2) {
-                suggestions.style.display = 'none';
-                return;
-            }
-
-            var matches = Object.entries(qbCustomers).filter(function(entry) {
-                var phoneKey = entry[0];
-                var cust = entry[1];
-                var cName = cust.name ? cust.name.toLowerCase() : '';
-                return cName.includes(val.toLowerCase()) || phoneKey.includes(val);
-            });
-
-            if (matches.length === 0) {
-                suggestions.style.display = 'none';
-                return;
-            }
-
-            matches.forEach(function(entry) {
-                var phoneKey = entry[0];
-                var cust = entry[1];
-                var div = document.createElement('div');
-                div.className = 'qb-suggestion-item';
-                div.innerHTML = '<strong>' + cust.name + '</strong><span>📞 ' + phoneKey + '</span>';
-                div.onclick = function() {
-                    document.getElementById('qbCustomerPhone').value = phoneKey;
-                    document.getElementById('qbCustomerName').value = cust.name;
-                    document.getElementById('qbCustomerAddress').value = cust.address || '';
-                    qbActiveGst = cust.gst || '';
-                    updateQbCustomerBadge(phoneKey);
-                    suggestions.style.display = 'none';
-                    showQbToast("Customer auto-filled.", "info");
-                };
-                suggestions.appendChild(div);
-            });
-            suggestions.style.display = 'block';
-        }
-
-        // Dismiss autocomplete when clicking outside
-        document.addEventListener('click', function(e) {
-            if (e.target.id !== 'qbCustomerPhone') {
-                var suggestions = document.getElementById('qb-phone-suggestions');
-                if (suggestions) suggestions.style.display = 'none';
-            }
-            if (e.target.id !== 'qbCustomerName') {
-                var suggestions = document.getElementById('qb-name-suggestions');
-                if (suggestions) suggestions.style.display = 'none';
-            }
-        });
-
-        function qbRecalc() {
-            var total = parseFloat(document.getElementById('qbOrderAmount').value) || 0;
-            var status = document.getElementById('qbPaymentStatus').value;
-            var paidInput = document.getElementById('qbAmountPaid');
-            
-            if (status === 'paid') {
-                paidInput.value = total.toFixed(2);
-            } else if (status === 'unpaid') {
-                paidInput.value = '0';
-            }
-            
-            var paid = parseFloat(paidInput.value) || 0;
-            var pending = total - paid;
-            
-            document.getElementById('qb-lbl-paid').textContent = paid.toFixed(2);
-            document.getElementById('qb-lbl-total').textContent = total.toFixed(2);
-            document.getElementById('qb-lbl-pending').textContent = Math.max(0, pending).toFixed(2);
-        }
-
-        function qbStatusChange() {
-            var status = document.getElementById('qbPaymentStatus').value;
-            var total = parseFloat(document.getElementById('qbOrderAmount').value) || 0;
-            var paidInput = document.getElementById('qbAmountPaid');
-            
-            if (status === 'paid') {
-                paidInput.value = total.toFixed(2);
-            } else if (status === 'unpaid') {
-                paidInput.value = '0';
-            }
-            qbRecalc();
-        }
-
-        function qbAmountPaidInput() {
-            var total = parseFloat(document.getElementById('qbOrderAmount').value) || 0;
-            var paid = parseFloat(document.getElementById('qbAmountPaid').value) || 0;
-            
-            if (paid < 0) paid = 0;
-            if (paid > total) {
-                paid = total;
-                document.getElementById('qbAmountPaid').value = total.toFixed(2);
-            }
-            
-            var dropdown = document.getElementById('qbPaymentStatus');
-            if (paid === 0) {
-                dropdown.value = 'unpaid';
-            } else if (paid >= total) {
-                dropdown.value = 'paid';
-            } else {
-                dropdown.value = 'partial';
-            }
-            qbRecalc();
-        }
-
-        async function saveQuickBill() {
-            var phone = document.getElementById('qbCustomerPhone').value.trim();
-            var name = document.getElementById('qbCustomerName').value.trim();
-            var address = document.getElementById('qbCustomerAddress').value.trim();
-            var gst = qbActiveGst.trim().toUpperCase();
-            var productName = document.getElementById('qbProductName').value.trim() || 'NAME';
-            var total = parseFloat(document.getElementById('qbOrderAmount').value) || 0;
-            var qty = parseFloat(document.getElementById('qbProductQty').value) || 1;
-            var status = document.getElementById('qbPaymentStatus').value;
-            var paid = parseFloat(document.getElementById('qbAmountPaid').value) || 0;
-            var notes = document.getElementById('qbNotes').value.trim();
-
-            if (!phone || !name) {
-                showQbToast("Please enter Customer Name and Phone Number.", "error");
-                return;
-            }
-            if (phone.length < 10) {
-                showQbToast("Please enter a valid 10-digit Phone Number.", "error");
-                return;
-            }
-            if (isNaN(total) || total <= 0) {
-                showQbToast("Please enter a valid Total Amount.", "error");
-                return;
-            }
-            if (isNaN(qty) || qty <= 0) {
-                showQbToast("Please enter a valid Quantity.", "error");
-                return;
-            }
-
-            var subtotal = total;
-            var gstAmount = 0;
-            var grandTotal = total;
-            var amountPending = grandTotal - paid;
-            var rate = total / qty;
 
             try {
-                if (typeof firebaseDb === 'undefined' || !firebaseDb) {
-                    showQbToast("Firebase not initialized", "error");
-                    return;
-                }
+                let loaded = false;
+                let freshRecords = [];
 
-                // Find the most recent pending bill for this customer (if any) and append to it.
-                // This ensures: after creating inv-02, all new entries go to inv-02;
-                // after creating inv-03, all new entries go to inv-03.
-                var activeBillId = null;
-                var activeBill = null;
-
-                var billsSnap = await firebaseDb.ref('bills').orderByChild('customerPhone').equalTo(phone).once('value');
-                if (billsSnap.exists()) {
-                    var bills = billsSnap.val();
-                    // Filter to only unpaid / partial bills
-                    var pendingBills = Object.entries(bills).filter(function(entry) {
-                        var b = entry[1];
-                        return b.status !== 'cancelled' && (b.status === 'unpaid' || b.status === 'partial');
-                    });
-                    if (pendingBills.length > 0) {
-                        // Sort by createdAt DESCENDING so the NEWEST bill is always picked using robust comparison helper
-                        pendingBills.sort(compareBillEntriesDescending);
-                        activeBillId = pendingBills[0][0];
-                        activeBill = pendingBills[0][1];
+                if (firebaseDb) {
+                    try {
+                        const snapshot = await firebaseDb.ref('records').once('value');
+                        const val = snapshot.val();
+                        if (val) {
+                            freshRecords = Array.isArray(val) ? val : Object.values(val);
+                        }
+                        freshRecords = freshRecords.filter(r => r !== null && r !== undefined);
+                        loaded = true;
+                    } catch (e) {
+                        console.error("Firebase DB read failed:", e);
                     }
                 }
 
-                var finalInvoiceNo;
-                var savedDate = new Date().toISOString();
+                if (!loaded) {
+                    // Try fetching from GitHub directly for latest data
+                    const repo = 'ezyship/track';
+                    const branch = 'main';
+                    let res = await fetch(`https://raw.githubusercontent.com/${repo}/${branch}/records.json?v=` + Date.now());
 
-                if (activeBill) {
-                    // ── Append to the NEWEST pending bill ──
-                    activeBill.items = activeBill.items || [];
-                    activeBill.items.push({
-                        productName: productName,
-                        quantity: qty,
-                        rate: rate,
-                        total: total,
-                        date: savedDate
-                    });
-
-                    // Recalculate totals
-                    activeBill.subtotal = (parseFloat(activeBill.subtotal) || 0) + total;
-                    activeBill.grandTotal = activeBill.subtotal + (parseFloat(activeBill.extraCharges) || 0) - (parseFloat(activeBill.discount) || 0);
-                    
-                    // Recalculate payments
-                    var today = new Date().toLocaleDateString('en-CA');
-                    if (activeBill.payments && Array.isArray(activeBill.payments)) {
-                        if (paid > 0) {
-                            activeBill.payments.push({ amount: paid, date: today });
-                        }
-                    } else {
-                        var oldPaid = (parseFloat(activeBill.amountPaid) || 0);
-                        var payments = [];
-                        if (oldPaid > 0) {
-                            var oldDate = activeBill.paymentTimestamp ? activeBill.paymentTimestamp.split('T')[0] : (activeBill.createdAt ? activeBill.createdAt.split('T')[0] : today);
-                            payments.push({ amount: oldPaid, date: oldDate });
-                        }
-                        if (paid > 0) {
-                            payments.push({ amount: paid, date: today });
-                        }
-                        if (payments.length === 0) {
-                            payments.push({ amount: 0, date: today });
-                        }
-                        activeBill.payments = payments;
+                    if (!res.ok) {
+                        // Fallback to local if GitHub fails
+                        res = await fetch('records.json?v=' + Date.now());
                     }
 
-                    // Sum payments for amountPaid
-                    activeBill.amountPaid = activeBill.payments.reduce(function(sum, p) { return sum + (p.amount || 0); }, 0);
-                    activeBill.amountPending = Math.max(0, activeBill.grandTotal - activeBill.amountPaid);
+                    if (!res.ok) throw new Error('Tracking records not found on GitHub or locally.');
+                    const text = await res.text();
+                    freshRecords = text.trim() ? JSON.parse(text) : [];
+                }
 
-                    if (activeBill.amountPending <= 0) {
-                        activeBill.status = 'paid';
-                    } else if (activeBill.amountPaid === 0) {
-                        activeBill.status = 'unpaid';
-                    } else {
-                        activeBill.status = 'partial';
-                    }
+                // Save to cache
+                localStorage.setItem('ghRecordsCache', JSON.stringify(freshRecords));
+                allRecords = freshRecords;
 
-                    // Find latest payment date in activeBill.payments as paymentTimestamp
-                    var latestPaymentDate = null;
-                    if (activeBill.payments && activeBill.payments.length > 0) {
-                        var latestMs = 0;
-                        activeBill.payments.forEach(function(pm) {
-                            if (pm.date) {
-                                var ms = new Date(pm.date).getTime();
-                                if (!isNaN(ms) && ms > latestMs) {
-                                    latestMs = ms;
-                                    latestPaymentDate = new Date(pm.date).toISOString();
-                                }
-                            }
-                        });
-                    }
-                    activeBill.paymentTimestamp = latestPaymentDate || (activeBill.status === 'paid' ? savedDate : (activeBill.paymentTimestamp || null));
-
-                    activeBill.updatedAt = savedDate;
-                    if (notes) {
-                        activeBill.notes = activeBill.notes ? (activeBill.notes + ' | ' + notes) : notes;
-                    } else {
-                        activeBill.notes = activeBill.notes || 'Quick Bill saved from Shipping Printer';
-                    }
-
-                    await firebaseDb.ref('bills/' + activeBillId).set(activeBill);
-                    finalInvoiceNo = activeBill.invoiceNo;
-
+                // Update UI state if it was loading, or just refresh search if input is active
+                const q = document.getElementById('si').value.trim();
+                const isLoadingShown = document.getElementById('load-st').style.display !== 'none';
+                if (isLoadingShown || q.length >= 5) {
+                    showState('init-st');
+                    if (q.length >= 5) doSearch();
+                }
+            } catch (e) {
+                if (!allRecords.length) {
+                    showState('norec-st');
+                    document.getElementById('norec-st').querySelector('p').textContent = e.message;
                 } else {
-                    // ── No pending bill exists — create a brand new one ──
-                    await firebaseDb.ref('billingSettings/nextInvoiceNumber').transaction(function(val) {
-                        return (val || 1) + 1;
-                    });
-
-                    var nextNoFormatted = String(qbSettings.nextInvoiceNumber || 1).padStart(3, '0');
-                    var invoiceNo = (qbSettings.invoicePrefix || 'INV-2026-') + nextNoFormatted;
-
-                    var items = [{
-                        productName: productName,
-                        quantity: qty,
-                        rate: rate,
-                        total: total,
-                        date: savedDate
-                    }];
-
-                    var today = new Date().toLocaleDateString('en-CA');
-                    var payments = [{ amount: paid, date: today }];
-
-                    var billPayload = {
-                        invoiceNo: invoiceNo,
-                        customerName: name,
-                        customerPhone: phone,
-                        customerAddress: address,
-                        customerGst: gst,
-                        createdAt: savedDate,
-                        updatedAt: savedDate,
-                        paymentTimestamp: status === 'paid' ? savedDate : (paid > 0 ? new Date().toISOString() : null),
-                        items: items,
-                        subtotal: subtotal,
-                        gstType: 'non-gst',
-                        gstPercent: 0,
-                        gstAmount: 0,
-                        extraCharges: 0,
-                        discount: 0,
-                        grandTotal: grandTotal,
-                        amountPaid: paid,
-                        amountPending: amountPending,
-                        status: status,
-                        payments: payments,
-                        notes: notes || 'Quick Bill saved from Shipping Printer'
-                    };
-
-                    var newBillRef = firebaseDb.ref('bills').push();
-                    await newBillRef.set(billPayload);
-                    finalInvoiceNo = invoiceNo;
+                    console.warn("Background refresh failed, using cached records:", e);
                 }
-
-                // Update customer profile
-                await firebaseDb.ref('customers/' + phone).update({
-                    name: name,
-                    phone: phone,
-                    address: address,
-                    gst: gst,
-                    lastBillingDate: savedDate
-                });
-
-                // Recalculate totals
-                await syncCustomerLedgerTotals(phone);
-
-                showQbToast("Invoice " + finalInvoiceNo + " saved successfully!", "success");
-                closeQuickBill();
-            } catch (err) {
-                showQbToast("Failed to save quick bill: " + err.message, "error");
             }
         }
 
-        async function syncCustomerLedgerTotals(phone) {
-            if (typeof firebaseDb === 'undefined' || !firebaseDb) return;
-            const customerSnap = await firebaseDb.ref('customers/' + phone).once('value');
-            if (!customerSnap.exists()) return; // Do not recreate deleted customer profiles during ledger recalculations
-
-            const billsSnap = await firebaseDb.ref('bills').orderByChild('customerPhone').equalTo(phone).once('value');
-            
-            let totalBusiness = 0;
-            let remainingBalance = 0;
-            let lastDate = 0;
-
-            if (billsSnap.exists()) {
-                Object.values(billsSnap.val()).forEach(function(bill) {
-                    if (bill.status !== 'cancelled') {
-                        totalBusiness += parseFloat(bill.grandTotal) || 0;
-                        remainingBalance += parseFloat(bill.amountPending) || 0;
-                    }
-                    const bTime = new Date(bill.createdAt).getTime();
-                    if (!isNaN(bTime) && bTime > lastDate) {
-                        lastDate = bTime;
-                    }
-                });
-            }
-
-            await firebaseDb.ref('customers/' + phone).update({
-                totalBusiness: totalBusiness,
-                remainingBalance: remainingBalance,
-                lastBillingDate: lastDate > 0 ? new Date(lastDate).toISOString() : null
-            });
+        function hl(text, q) {
+            if (text === undefined || text === null) return '';
+            if (!q) return text;
+            return String(text).replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
+        }
+        function fmtDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso); if (isNaN(d)) return iso;
+            const p = n => String(n).padStart(2, '0');
+            return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
         }
 
-        function showQbToast(msg, type) {
-            var toast = document.getElementById('qbToast');
-            if (!toast) return;
-            toast.textContent = msg;
-            toast.className = 'show ' + (type || 'info');
-            setTimeout(function () {
-                toast.className = '';
-            }, 3000);
-        }
+        function doSearch() {
+            const raw = document.getElementById('si').value.trim();
+            const q = raw.toLowerCase();
+            if (!allRecords.length) { showState('norec-st'); return; }
 
-        // Start with exactly ONE default box on page load
-        addBox();
-    </script>
+            // Require exactly/at least 5 characters for security
+            if (q.length < 5) { showState('init-st'); return; }
 
-    <!-- Quick Bill Modal -->
-    <div class="qb-modal" id="quickBillModal">
-        <div class="qb-modal-content">
-            <div class="qb-modal-header">
-                <h3>💵 Quick Bill Invoice <span id="qb-customer-badge" class="qb-badge new">New Customer</span></h3>
-                <button class="qb-modal-close" onclick="closeQuickBill()">×</button>
-            </div>
-            <div class="qb-modal-body">
-                <div class="qb-form-row">
-                    <div class="qb-form-group">
-                        <label for="qbCustomerPhone">Customer Phone</label>
-                        <input type="text" id="qbCustomerPhone" placeholder="Enter or parsed phone" oninput="handleQbPhoneInput(this)">
-                        <div class="qb-suggestions-box" id="qb-phone-suggestions"></div>
-                    </div>
-                    <div class="qb-form-group">
-                        <label for="qbCustomerName">Customer Name</label>
-                        <input type="text" id="qbCustomerName" placeholder="Customer Name" oninput="handleQbNameInput(this)" autocomplete="off">
-                        <div class="qb-suggestions-box" id="qb-name-suggestions"></div>
-                    </div>
-                </div>
+            const matched = allRecords.filter(r =>
+                String(r.phone || '').endsWith(q)
+            );
 
-                <div class="qb-form-group">
-                    <label for="qbCustomerAddress">Shipping Address</label>
-                    <textarea id="qbCustomerAddress" rows="2" placeholder="Shipping Address"></textarea>
-                </div>
+            ['init-st', 'empty-st', 'norec-st', 'load-st'].forEach(s => document.getElementById(s).style.display = 'none');
 
-                <div class="qb-form-group">
-                    <label for="qbProductName">Product Name</label>
-                    <input type="text" id="qbProductName" value="NAME" placeholder="Product Name">
-                </div>
+            if (!matched.length) { document.getElementById('empty-st').style.display = 'block'; document.getElementById('rstats').style.display = 'none'; document.getElementById('rgrid').innerHTML = ''; return; }
 
-                <div class="qb-form-row">
-                    <div class="qb-form-group">
-                        <label for="qbProductQty">Product Quantity</label>
-                        <input type="number" id="qbProductQty" value="1" min="1" placeholder="Quantity">
-                    </div>
-                    <div class="qb-form-group">
-                        <label for="qbOrderAmount">Total Amount (₹)</label>
-                        <input type="number" id="qbOrderAmount" placeholder="Enter total amount" min="0" oninput="qbRecalc()">
-                    </div>
-                </div>
+            document.getElementById('rstats').style.display = 'flex';
+            document.getElementById('rcnt').textContent = matched.length;
+            document.getElementById('rbadge').textContent = matched.length;
 
-                <div class="qb-form-row">
-                    <div class="qb-form-group">
-                        <label for="qbPaymentStatus">Payment Status</label>
-                        <select id="qbPaymentStatus" onchange="qbStatusChange()">
-                            <option value="paid">Paid</option>
-                            <option value="unpaid" selected>Unpaid</option>
-                            <option value="partial">Partial Paid</option>
-                        </select>
-                    </div>
-                    <div class="qb-form-group">
-                        <label for="qbAmountPaid">Amount Paid (₹)</label>
-                        <input type="number" id="qbAmountPaid" placeholder="Paid amount" min="0" oninput="qbAmountPaidInput()">
-                    </div>
-                </div>
-
-                <div class="qb-form-group">
-                    <label for="qbNotes">Notes</label>
-                    <input type="text" id="qbNotes" placeholder="Additional details / reference">
-                </div>
-
-                <div class="qb-calc-summary">
-                    <div class="qb-calc-row">
-                        <span>Total Amount</span>
-                        <span>₹<span id="qb-lbl-total">0.00</span></span>
-                    </div>
-                    <div class="qb-calc-row">
-                        <span>Paid Amount</span>
-                        <span>₹<span id="qb-lbl-paid">0.00</span></span>
-                    </div>
-                    <div class="qb-calc-row total">
-                        <span>Outstanding Balance</span>
-                        <span>₹<span id="qb-lbl-pending">0.00</span></span>
-                    </div>
-                </div>
-            </div>
-            <div class="qb-modal-footer">
-                <button class="btn btn-default" onclick="closeQuickBill()" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #f1f5f9; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
-                <button class="btn btn-print" onclick="saveQuickBill()" style="background: linear-gradient(135deg, #10b981, #059669); border: none; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">💾 Save Bill</button>
-            </div>
+            document.getElementById('rgrid').innerHTML = matched.map(r => {
+                return `
+    <div class="rc" onclick="openMod('${r.id}')">
+      <div class="vo"><span>🔍 View Photo</span></div>
+      <img src="${r.photoUrl}" alt="parcel photo" loading="lazy">
+      <div class="ci">
+        <div class="cn">👤 ${hl(r.name, q)}</div>
+        <div class="ml">
+          <span class="chip">📍 ${hl(r.pincode, q)}</span>
+          <span class="chip ph">📞 ${hl(r.phone, q)}</span>
+          ${r.awb ? `<span class="chip" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.2); color:#34d399;">🚚 ${hl(r.awb, q)}</span>` : ''}
+          <span class="chip dt">🕐 ${fmtDate(r.uploadedAt)}</span>
         </div>
-    </div>
+      </div>
+    </div>`;
+            }).join('');
+        }
 
-    <!-- Quick Bill Toast -->
-    <div id="qbToast">Ready</div>
+        function openMod(id) {
+            const r = allRecords.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('mimg').src = r.photoUrl;
+            document.getElementById('mname').textContent = `👤 ${r.name}`;
+            document.getElementById('mmeta').innerHTML = `
+        <span class="chip">📍 ${r.pincode}</span>
+        <span class="chip ph">📞 ${r.phone}</span>
+        ${r.awb ? `<span class="chip" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.2); color:#34d399;">🚚 ${r.awb}</span>` : ''}
+        <span class="chip dt">🕐 ${fmtDate(r.uploadedAt)}</span>
+      `;
+
+            // Setup Tracking Area
+            const actionArea = document.getElementById('tracking-action-area');
+            const manualBox = document.getElementById('manual-track-box');
+            actionArea.innerHTML = '';
+
+            if (r.awb) {
+                manualBox.style.display = 'none';
+                actionArea.innerHTML = `
+          <a href="livestatus.html?awb=${encodeURIComponent(r.awb)}" class="dlbtn" style="width:100%; max-width:500px; justify-content:center; background:linear-gradient(135deg, #10b981, #059669); border:none; font-size:1.1rem; padding:18px; border-radius:15px; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4); transition: transform 0.2s;">🚀 Click to Track Status</a>
+          <a href="${r.photoUrl}" class="dl-btn-secondary" style="margin-top:5px;" download="tracking_photo_${r.id}.jpg">⬇️ Download Photo</a>
+        `;
+            } else {
+                manualBox.style.display = 'block';
+                document.getElementById('manual-awb').value = '';
+                actionArea.innerHTML = `
+          <a href="${r.photoUrl}" class="dl-btn-secondary" download="tracking_photo_${r.id}.jpg">⬇️ Download Photo</a>
+        `;
+            }
+
+            document.getElementById('imod').classList.add('open');
+        }
+
+        function startManualTrack() {
+            const num = document.getElementById('manual-awb').value.trim();
+            if (!num) { alert("Please enter the tracking ID from the photo."); return; }
+            window.location.href = `livestatus.html?awb=${encodeURIComponent(num)}`;
+        }
+
+        function closeMod() { document.getElementById('imod').classList.remove('open'); document.getElementById('mimg').src = ''; }
+
+        document.getElementById('imod').addEventListener('click', e => { if (e.target === document.getElementById('imod')) closeMod(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMod(); } });
+
+        // Init
+        loadAndSearch();
+    </script>
 </body>
 
 </html>
