@@ -589,10 +589,10 @@
                 </div>
             </div>
 
-            <!-- Panel 2.5: Firebase Setup Guide (Collapsible) -->
+            <!-- Panel 2.5: Firebase & Sheets Setup Guide (Collapsible) -->
             <div class="card span-2" id="fb-guide-panel" style="background: rgba(20, 30, 60, 0.45); border-color: rgba(99, 102, 241, 0.2);">
                 <div class="card-title" onclick="toggleGuide()" style="cursor: pointer; justify-content: space-between; user-select: none;">
-                    <span style="display: flex; align-items: center; gap: 8px;">🔥 Firebase Setup Guide</span>
+                    <span style="display: flex; align-items: center; gap: 8px;">🔥 Firebase & Sheets Setup Guide</span>
                     <span id="guide-toggle-btn" class="btn btn-reset" style="padding: 6px 12px; font-size: 0.78rem; border-radius: 6px; margin: 0; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc;">📖 Expand Guide</span>
                 </div>
                 <div id="guide-content-wrapper" style="display: none; overflow: hidden; margin-top: 15px;">
@@ -602,6 +602,7 @@
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 2)">3. Realtime Database</button>
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 3)">4. Storage Rules</button>
                         <button class="guide-tab-btn" onclick="switchGuideTab(event, 4)">5. Paste API Credentials</button>
+                        <button class="guide-tab-btn" onclick="switchGuideTab(event, 5)">6. Google Sheets Script</button>
                     </div>
                     
                     <div class="guide-tab-panes">
@@ -645,13 +646,27 @@
                                 <li>Select your database location (choose the nearest region to your clients) and click <strong>Next</strong>.</li>
                                 <li>Select <strong>Start in locked mode</strong> (or test mode) and click <strong>Enable</strong>.</li>
                                 <li>Once the database is created, navigate to the <strong>Rules</strong> tab at the top.</li>
-                                <li>Replace the default database rules with the configuration below to require authentication for reads and writes:
+                                <li>Replace the default database rules with the configuration below to configure public reading for tracking records while securing invoices, customer profiles, and setup parameters:
                                     <div class="code-container">
                                         <button class="copy-code-btn" onclick="copyCode(this, 'db-rules-code')">Copy Rules</button>
                                         <pre id="db-rules-code">{
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "records": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "bills": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "customers": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "billingSettings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
   }
 }</pre>
                                     </div>
@@ -711,6 +726,125 @@ service firebase.storage {
                                     </ul>
                                 </li>
                                 <li>Click <strong>Save for Preview</strong> to test live, or <strong>Download config file</strong> to save the changes permanently!</li>
+                            </ol>
+                        </div>
+
+                        <!-- Step 6: Google Sheets Script -->
+                        <div class="guide-pane">
+                            <div class="guide-alert">
+                                <strong>Goal:</strong> Deploy a Google Apps Script linked to your spreadsheet to log and query shipping records.
+                            </div>
+                            <ol>
+                                <li>Create a new Google Spreadsheet or open an existing tracking spreadsheet.</li>
+                                <li>Rename the active sheet/tab to <code>Sheet1</code> or make sure it is the first tab in the spreadsheet.</li>
+                                <li>In the top menu, go to <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
+                                <li>Delete any placeholder code in the editor, and paste the code below:
+                                    <div class="code-container">
+                                        <button class="copy-code-btn" onclick="copyCode(this, 'sheets-script-code')">Copy Script</button>
+                                        <pre id="sheets-script-code">function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var jsonArray = [];
+  
+  var colMap = {};
+  headers.forEach(function(h, index) {
+    colMap[h.toString().toLowerCase().trim()] = index;
+  });
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var record = {
+      timestamp: row[colMap["timestamp"] || 0],
+      pkgId: colMap["package id"] !== undefined ? row[colMap["package id"]] : (colMap["pkgid"] !== undefined ? row[colMap["pkgid"]] : ""),
+      name: colMap["name"] !== undefined ? row[colMap["name"]] : "",
+      phone: colMap["phone"] !== undefined ? row[colMap["phone"]] : "",
+      pincode: colMap["pincode"] !== undefined ? row[colMap["pincode"]] : "",
+      address: colMap["address"] !== undefined ? row[colMap["address"]] : "",
+      rawText: colMap["rawtext"] !== undefined ? row[colMap["rawtext"]] : ""
+    };
+    
+    if (record.timestamp instanceof Date) {
+      record.timestamp = record.timestamp.toISOString();
+    } else {
+      record.timestamp = record.timestamp.toString();
+    }
+    
+    jsonArray.push(record);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(jsonArray))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var params = e.parameter;
+  
+  if (params.action === "delete") {
+    var timestampToDelete = params.timestamp;
+    var data = sheet.getDataRange().getValues();
+    
+    for (var i = 1; i < data.length; i++) {
+      var rowTime = data[i][0];
+      if (rowTime instanceof Date) {
+        rowTime = rowTime.toISOString();
+      } else {
+        rowTime = rowTime.toString();
+      }
+      
+      if (rowTime === timestampToDelete) {
+        sheet.deleteRow(i + 1);
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          message: "Order deleted successfully"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Order not found with timestamp: " + timestampToDelete
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var payload = JSON.parse(params.data);
+  var timestamp = new Date();
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Timestamp", "Package ID", "Name", "Phone", "Pincode", "Address", "RawText"]);
+  }
+  
+  sheet.appendRow([
+    timestamp,
+    payload.pkgId || "",
+    payload.name || "",
+    payload.phone || "",
+    payload.pincode || "",
+    payload.address || "",
+    payload.rawText || ""
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "success",
+    message: "Record appended successfully"
+  })).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                                    </div>
+                                </li>
+                                <li>Click the <strong>Save project (floppy disk)</strong> icon at the top of the editor.</li>
+                                <li>Click <strong>Deploy</strong> (blue button in top right) &gt; <strong>New deployment</strong>.</li>
+                                <li>Click the Gear icon next to "Select type" and choose <strong>Web app</strong>.</li>
+                                <li>Configure deployment fields:
+                                    <ul>
+                                        <li><strong>Description:</strong> <code>EzyShip Sheets Link</code></li>
+                                        <li><strong>Execute as:</strong> <code>Me (your Google email)</code></li>
+                                        <li><strong>Who has access:</strong> <code>Anyone</code> <span style="color:var(--err); font-weight:600;">(CRITICAL for public submissions/reads)</span></li>
+                                    </ul>
+                                </li>
+                                <li>Click <strong>Deploy</strong>. If prompted, click <strong>Authorize Access</strong>, log in, expand "Advanced", and click <strong>Go to Untitled Project (unsafe)</strong> to grant permissions.</li>
+                                <li>Copy the generated <strong>Web App URL</strong> (e.g. <code>https://script.google.com/macros/s/AKfycb.../exec</code>).</li>
+                                <li>Paste this URL directly into the <strong>Google Sheets Web App URL</strong> input field under the <strong>Application Settings</strong> panel above.</li>
                             </ol>
                         </div>
                     </div>
