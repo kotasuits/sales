@@ -5,7 +5,6 @@
 let appConfig = {
     appName: "EzyShip Portal",
     setupAccessKey: "admin123", // Password to restrict setup page access
-    googleSheetsUrl: "https://script.google.com/macros/s/AKfycbzk372u16Yt62Md6PlILSjZO8TunUqZHAmoG4q6bOKP7IW91IpIyA6wWdRYYyEAlrOB7A/exec",
     firebaseConfig: {
         apiKey: "AIzaSyDcas4JHCS1kQ5P1DA-LEDjpqKtTf9WFrY",
         authDomain: "ezyship-ca164.firebaseapp.com",
@@ -75,21 +74,7 @@ const firebaseAuth = firebaseInitialized ? firebase.auth() : null;
 const firebaseDb = firebaseInitialized ? firebase.database() : null;
 const firebaseStorage = firebaseInitialized ? firebase.storage() : null;
 
-// Central dynamic configuration sync
-if (firebaseInitialized && firebaseAuth && firebaseDb) {
-    firebaseAuth.onAuthStateChanged((user) => {
-        if (user) {
-            firebaseDb.ref('billingSettings/googleSheetsUrl').on('value', snap => {
-                if (snap.exists() && snap.val()) {
-                    appConfig.googleSheetsUrl = snap.val();
-                    document.dispatchEvent(new CustomEvent('googleSheetsUrlSynced', { detail: snap.val() }));
-                } else if (appConfig.googleSheetsUrl) {
-                    firebaseDb.ref('billingSettings/googleSheetsUrl').set(appConfig.googleSheetsUrl);
-                }
-            });
-        }
-    });
-}
+// (Google Sheets sync removed — dispatches now stored directly in Firebase Realtime Database)
 
 // 3. Helper Functions
 function getLoginUrl() {
